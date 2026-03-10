@@ -1,0 +1,120 @@
+# MCP Server for CST Studio Suite
+
+A Model Context Protocol (MCP) server providing AI-driven access to [CST Studio Suite](https://www.3ds.com/products/simulia/cst-studio-suite) for antenna design, RF/microwave simulation, and PCB layout.
+
+## Features
+
+- **~107 tools** across 16 categories: geometry, materials, ports, boundaries, mesh, solvers, simulation, results, parameters, antenna templates, PCB, and more
+- **Dual-mode operation**: Connected mode (direct CST execution on Windows) and Offline mode (VBA script generation on any OS)
+- **13 parametric antenna templates**: Patch, dipole, monopole, horn, Yagi, helix, Vivaldi, slot, IFA, PIFA, spiral, bowtie — with automatic dimension calculations from target frequency
+- **PCB/SI tools**: Stackup creation, trace routing with impedance calculation, via modeling, ground planes
+- **Material database**: 30+ metals, dielectrics, and RF substrates with accurate electromagnetic properties
+- **VBA injection prevention**: All generated VBA passes through security validation
+- **CST VBA reference**: Built-in help system for CST VBA objects and methods
+
+## Installation
+
+```bash
+pip install mcp-cst-studio
+```
+
+Or from source:
+
+```bash
+git clone https://github.com/RFingAdam/mcp-cst-studio.git
+cd mcp-cst-studio
+pip install -e ".[dev]"
+```
+
+## Configuration
+
+### Claude Code (`.mcp.json`)
+
+```json
+{
+  "mcpServers": {
+    "cst-studio": {
+      "command": "mcp-cst-studio",
+      "env": {
+        "CST_PATH": "C:\\Program Files\\CST Studio Suite 2026",
+        "CST_WORK_DIR": "C:\\cst_projects"
+      }
+    }
+  }
+}
+```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CST_PATH` | CST installation directory | Auto-detected on Windows |
+| `CST_WORK_DIR` | Project working directory | `~/cst_projects` |
+| `CST_VERSION` | CST version year | `2026` |
+
+## Usage
+
+### Offline Mode (Any OS)
+
+Works without CST installed. Tools generate VBA scripts that can be executed in CST Studio Suite.
+
+```
+"Design a 2.4 GHz rectangular patch antenna on FR-4 substrate"
+→ Returns calculated dimensions + complete VBA script for CST
+```
+
+### Connected Mode (Windows with CST)
+
+When the CST Python library is available, tools execute directly:
+
+```
+"Create the antenna, run the time-domain simulation, and show me the S-parameters"
+→ Builds geometry, configures solver, runs simulation, extracts results
+```
+
+## Tool Categories
+
+| Category | Tools | Description |
+|----------|-------|-------------|
+| Project | 8 | Create, open, save, close, export projects |
+| Geometry | 13 | Brick, cylinder, sphere, cone, torus, extrude, loft, wire, polygon |
+| Boolean | 4 | Add, subtract, intersect, insert operations |
+| Transforms | 4 | Translate, rotate, mirror, scale |
+| Materials | 8 | Create, load, assign materials; built-in material database |
+| Ports | 7 | Waveguide, discrete, lumped, plane wave, Floquet ports |
+| Boundaries | 4 | Boundary conditions, background, symmetry, frequency range |
+| Mesh | 5 | Mesh type, density, refinement, adaptive meshing |
+| Solvers | 5 | Time domain, frequency domain, eigenmode, integral equation |
+| Simulation | 6 | Run, status, pause, resume, stop simulations |
+| Results | 10 | S-parameters, far-field, impedance, VSWR, gain, efficiency |
+| Import/Export | 5 | CAD import/export, Touchstone, far-field export |
+| Parameters | 6 | Parametric design, sweeps, optimization |
+| Antenna Templates | 13 | Parametric antenna designs with RF calculations |
+| PCB | 6 | Stackup, traces, vias, ground planes, Gerber import |
+| VBA | 3 | Raw VBA execution, help reference, object listing |
+
+## Antenna Templates
+
+Each template calculates dimensions from target frequency and generates a complete, simulatable CST model:
+
+| Template | Type | Typical Gain | Bandwidth |
+|----------|------|-------------|-----------|
+| Patch | Planar | 5-8 dBi | 1-5% |
+| Dipole | Wire | 2.15 dBi | 10-20% |
+| Monopole | Wire | 2-5 dBi | 10-20% |
+| Horn | Aperture | 10-25 dBi | 50%+ |
+| Yagi | Array | 7-15 dBi | 3-5% |
+| Helix | Wire | 8-15 dBi | 50%+ |
+| Vivaldi | Planar | 5-12 dBi | 100%+ |
+| IFA/PIFA | Planar | 1-3 dBi | 5-10% |
+
+## Development
+
+```bash
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+## License
+
+Apache License 2.0 — See [LICENSE](LICENSE).
