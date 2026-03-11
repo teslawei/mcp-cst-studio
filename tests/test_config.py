@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import sys
+import types
+from unittest.mock import patch
 
 import pytest
 
@@ -116,7 +119,6 @@ class TestCSTConfigFromEnv:
 
         config = CSTConfig.from_env()
 
-        # CST is never installed in the test environment
         assert config.connected is False
 
     def test_from_env_returns_cstconfig_instance(self, monkeypatch):
@@ -128,16 +130,89 @@ class TestCSTConfigFromEnv:
 
         assert isinstance(config, CSTConfig)
 
+    def test_from_env_skips_auto_detect_when_cst_path_set(self, monkeypatch):
+        """When CST_PATH is set, _auto_detect_cst should not be called."""
+        monkeypatch.setenv("CST_PATH", "/my/cst")
+        monkeypatch.delenv("CST_WORK_DIR", raising=False)
+        monkeypatch.delenv("CST_VERSION", raising=False)
+
+        with patch("mcp_cst_studio.config._auto_detect_cst") as mock_detect:
+            config = CSTConfig.from_env()
+
+        mock_detect.assert_not_called()
+        assert config.cst_path == "/my/cst"
+
+    def test_from_env_calls_auto_detect_when_no_cst_path(self, monkeypatch):
+        """When CST_PATH is not set, _auto_detect_cst is called."""
+        monkeypatch.delenv("CST_PATH", raising=False)
+        monkeypatch.delenv("CST_WORK_DIR", raising=False)
+        monkeypatch.delenv("CST_VERSION", raising=False)
+
+        with patch("mcp_cst_studio.config._auto_detect_cst", return_value=None) as mock_detect:
+            config = CSTConfig.from_env()
+
+        mock_detect.assert_called_once_with("2026")
+        assert config.cst_path is None
+
+    def test_from_env_auto_detect_returns_path(self, monkeypatch):
+        """When auto-detect finds CST, cst_path is set."""
+        monkeypatch.delenv("CST_PATH", raising=False)
+        monkeypatch.delenv("CST_WORK_DIR", raising=False)
+        monkeypatch.delenv("CST_VERSION", raising=False)
+
+        detected = r"C:\Program Files\CST Studio Suite 2026"
+        with patch("mcp_cst_studio.config._auto_detect_cst", return_value=detected):
+            config = CSTConfig.from_env()
+
+        assert config.cst_path == detected
+
+    def test_from_env_connected_true_when_cst_importable(self, monkeypatch):
+        """When cst.interface is importable, connected=True."""
+        monkeypatch.setenv("CST_PATH", "/some/cst")
+        monkeypatch.delenv("CST_WORK_DIR", raising=False)
+        monkeypatch.delenv("CST_VERSION", raising=False)
+
+        # Inject a fake cst.interface module so the import succeeds
+        fake_cst = types.ModuleType("cst")
+        fake_interface = types.ModuleType("cst.interface")
+        monkeypatch.setitem(sys.modules, "cst", fake_cst)
+        monkeypatch.setitem(sys.modules, "cst.interface", fake_interface)
+
+        config = CSTConfig.from_env()
+
+        assert config.connected is True
+
+    def test_from_env_work_dir_expands_tilde(self, monkeypatch):
+        """Default work_dir should expand ~ to the user's home directory."""
+        monkeypatch.delenv("CST_PATH", raising=False)
+        monkeypatch.delenv("CST_WORK_DIR", raising=False)
+        monkeypatch.delenv("CST_VERSION", raising=False)
+
+        config = CSTConfig.from_env()
+
+        assert "~" not in config.work_dir
+        assert config.work_dir.endswith("cst_projects")
+
+    def test_from_env_version_passed_to_auto_detect(self, monkeypatch):
+        """Custom CST_VERSION is forwarded to _auto_detect_cst."""
+        monkeypatch.delenv("CST_PATH", raising=False)
+        monkeypatch.delenv("CST_WORK_DIR", raising=False)
+        monkeypatch.setenv("CST_VERSION", "2025")
+
+        with patch("mcp_cst_studio.config._auto_detect_cst", return_value=None) as mock_detect:
+            CSTConfig.from_env()
+
+        mock_detect.assert_called_once_with("2025")
+
 
 # ---------------------------------------------------------------------------
-# _auto_detect_cst() — missing CST handled gracefully
+# _auto_detect_cst() — path detection
 # ---------------------------------------------------------------------------
 
 class TestAutoDetectCST:
     def test_returns_none_when_no_cst_installed(self):
         """On Linux/macOS/CI where CST is absent, result is None."""
         result = _auto_detect_cst("2026")
-        # On a non-Windows machine none of the candidate paths will exist
         assert result is None or isinstance(result, str)
 
     def test_returns_none_for_nonexistent_version(self):
@@ -151,3 +226,52 @@ class TestAutoDetectCST:
             _auto_detect_cst("2026")
         except Exception as exc:
             pytest.fail(f"_auto_detect_cst raised unexpectedly: {exc}")
+
+    def test_returns_first_matching_path(self):
+        """When a candidate directory exists, return it."""
+        with patch("os.path.isdir", side_effect=lambda p: "Program Files (x86)" in p):
+            result = _auto_detect_cst("2026")
+
+        assert result is not None
+        assert "Program Files (x86)" in result
+        assert "2026" in result
+
+    def test_checks_all_candidates_in_order(self):
+        """Auto-detect checks multiple paths and returns the first match."""
+        checked = []
+
+        def fake_isdir(p):
+            checked.append(p)
+            return False
+
+        with patch("os.path.isdir", side_effect=fake_isdir):
+            result = _auto_detect_cst("2026")
+
+        assert result is None
+        assert len(checked) == 4  # 4 candidate paths
+
+    def test_returns_second_candidate_if_first_missing(self):
+        """If first candidate doesn't exist, check the next."""
+        def fake_isdir(p):
+            return "Program Files\\" in p and "x86" not in p
+
+        with patch("os.path.isdir", side_effect=fake_isdir):
+            result = _auto_detect_cst("2026")
+
+        assert result is not None
+        assert "Program Files" in result
+        assert "x86" not in result
+
+    def test_version_embedded_in_candidate_paths(self):
+        """All candidate paths should contain the version string."""
+        checked = []
+
+        def fake_isdir(p):
+            checked.append(p)
+            return False
+
+        with patch("os.path.isdir", side_effect=fake_isdir):
+            _auto_detect_cst("2025")
+
+        for path in checked:
+            assert "2025" in path
