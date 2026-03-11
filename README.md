@@ -108,11 +108,72 @@ Each template calculates dimensions from target frequency and generates a comple
 | Vivaldi | Planar | 5-12 dBi | 100%+ |
 | IFA/PIFA | Planar | 1-3 dBi | 5-10% |
 
+## Connected Mode Setup (Windows)
+
+To use with a live CST Studio installation:
+
+### Prerequisites
+
+- Windows 10/11 with CST Studio Suite 2024+ installed
+- CST Python libraries on your Python path (typically `C:\Program Files\CST Studio Suite 20XX\LinuxAMD64\python_cst_libraries`)
+- Python 3.10+
+
+### Setup
+
+```bash
+# 1. Clone and install
+git clone https://github.com/RFingAdam/mcp-cst-studio.git
+cd mcp-cst-studio
+pip install -e .
+
+# 2. Set environment (or let auto-detect find CST)
+set CST_PATH=C:\Program Files\CST Studio Suite 2026
+set CST_WORK_DIR=C:\cst_projects
+
+# 3. Add CST Python libs to PYTHONPATH
+set PYTHONPATH=%CST_PATH%\LinuxAMD64\python_cst_libraries;%PYTHONPATH%
+
+# 4. Verify
+python -c "import cst.interface; print('CST available')"
+mcp-cst-studio  # starts stdio server
+```
+
+### Claude Code / Claude Desktop
+
+Add to your `.mcp.json` or Claude Desktop config:
+
+```json
+{
+  "mcpServers": {
+    "cst-studio": {
+      "command": "mcp-cst-studio",
+      "env": {
+        "CST_PATH": "C:\\Program Files\\CST Studio Suite 2026",
+        "CST_WORK_DIR": "C:\\cst_projects",
+        "PYTHONPATH": "C:\\Program Files\\CST Studio Suite 2026\\LinuxAMD64\\python_cst_libraries"
+      }
+    }
+  }
+}
+```
+
+### Validation Checklist
+
+Once connected, verify with these prompts:
+
+1. **Connection**: "What is the CST connection status?" — should show `connected` mode
+2. **Geometry**: "Create a brick from (0,0,0) to (10,10,5) in component1" — should appear in CST
+3. **Antenna**: "Design a 2.4 GHz patch antenna on FR-4" — should build full model
+4. **Simulation**: "Run a time-domain simulation" — should start solver
+5. **Results**: "Show me the S-parameters" — should extract S11 data
+
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v
+pytest tests/ -v          # 215 tests, all offline
+ruff check src/ tests/    # linting
+mypy src/mcp_cst_studio/  # type checking
 ```
 
 ## License
