@@ -135,30 +135,31 @@ TOOLS: list[Tool] = [
     ),
 ]
 
-_TOOL_NAMES = {t.name for t in TOOLS}
-
-
 async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a mesh tool call."""
     if name == "cst_set_mesh_type":
-        return _set_mesh_type(arguments, client)
+        handler = _set_mesh_type
     elif name == "cst_set_mesh_density":
-        return _set_mesh_density(arguments, client)
+        handler = _set_mesh_density
     elif name == "cst_add_mesh_refinement":
-        return _add_mesh_refinement(arguments, client)
+        handler = _add_mesh_refinement
     elif name == "cst_set_adaptive_mesh":
-        return _set_adaptive_mesh(arguments, client)
+        handler = _set_adaptive_mesh
     elif name == "cst_get_mesh_info":
-        return _get_mesh_info(arguments, client)
+        handler = _get_mesh_info
+    else:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": f"Unknown mesh tool: {name}",
+        }))]
 
-    return [
-        TextContent(
-            type="text",
-            text=json.dumps({"error": f"Unknown mesh tool: {name}"}),
-        )
-    ]
+    try:
+        return handler(arguments, client)
+    except Exception as e:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": str(e),
+        }))]
 
 
 def _set_mesh_type(arguments: dict, client: CSTClient) -> list[TextContent]:

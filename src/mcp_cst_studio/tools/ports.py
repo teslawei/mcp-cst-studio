@@ -283,34 +283,33 @@ TOOLS: list[Tool] = [
     ),
 ]
 
-_TOOL_NAMES = {t.name for t in TOOLS}
-
-
 async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a port/excitation tool call."""
-    if name == "cst_add_waveguide_port":
-        return await _handle_waveguide_port(arguments, client)
-    if name == "cst_add_discrete_port":
-        return await _handle_discrete_port(arguments, client)
-    if name == "cst_add_lumped_element":
-        return await _handle_lumped_element(arguments, client)
-    if name == "cst_add_plane_wave":
-        return await _handle_plane_wave(arguments, client)
-    if name == "cst_add_floquet_port":
-        return await _handle_floquet_port(arguments, client)
-    if name == "cst_list_ports":
-        return await _handle_list_ports(arguments, client)
-    if name == "cst_delete_port":
-        return await _handle_delete_port(arguments, client)
+    try:
+        if name == "cst_add_waveguide_port":
+            return await _handle_waveguide_port(arguments, client)
+        if name == "cst_add_discrete_port":
+            return await _handle_discrete_port(arguments, client)
+        if name == "cst_add_lumped_element":
+            return await _handle_lumped_element(arguments, client)
+        if name == "cst_add_plane_wave":
+            return await _handle_plane_wave(arguments, client)
+        if name == "cst_add_floquet_port":
+            return await _handle_floquet_port(arguments, client)
+        if name == "cst_list_ports":
+            return await _handle_list_ports(arguments, client)
+        if name == "cst_delete_port":
+            return await _handle_delete_port(arguments, client)
 
-    return [
-        TextContent(
-            type="text",
-            text=json.dumps({"error": f"Unknown port tool: {name}"}),
-        )
-    ]
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": f"Unknown port tool: {name}",
+        }))]
+    except Exception as e:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": str(e),
+        }))]
 
 
 async def _handle_waveguide_port(
@@ -480,18 +479,24 @@ async def _handle_plane_wave(
     e_theta = float(arguments.get("e_theta", 1.0))
     e_phi = float(arguments.get("e_phi", 0.0))
 
-    vba = (
-        VBABuilder("PlaneWave")
-        .call("Reset")
-        .set("Normal", polarization)
-        .set_number("EFieldVector", e_theta)
-        .set_number("Theta", theta)
-        .set_number("Phi", phi)
-        .set_number("PolarizationAngle", 0)
-        .set_number("EFieldAmplitudeTheta", e_theta)
-        .set_number("EFieldAmplitudePhi", e_phi)
-        .call("Store")
-    )
+    vba = VBABuilder("PlaneWave").call("Reset")
+
+    # Propagation direction defaults to z
+    vba.set("Normal", "z")
+
+    # Set polarization type and polarization-specific parameters
+    vba.set("Polarization", polarization)
+    if polarization == "circular":
+        vba.set("CircularPolarization", "Left")
+    else:
+        vba.set_number("EFieldVector", e_theta)
+
+    vba.set_number("Theta", theta)
+    vba.set_number("Phi", phi)
+    vba.set_number("PolarizationAngle", 0)
+    vba.set_number("EFieldAmplitudeTheta", e_theta)
+    vba.set_number("EFieldAmplitudePhi", e_phi)
+    vba.call("Store")
     script = vba.build()
     result = client.execute_vba(script)
     result["excitation"] = "plane_wave"

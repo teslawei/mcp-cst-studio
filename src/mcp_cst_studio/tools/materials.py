@@ -274,6 +274,11 @@ def _load_material_db() -> dict[str, list[dict]]:
             data = json.load(f)
         db["dielectrics"] = data.get("dielectrics", [])
 
+    substrates_path = DATA_DIR / "substrates.json"
+    if substrates_path.exists():
+        with substrates_path.open() as f:
+            db["substrates"] = json.load(f)
+
     _material_db_cache = db
     return db
 
@@ -295,32 +300,38 @@ def _find_material(name: str) -> dict | None:
 
 async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:
     """Dispatch a material tool call and return results."""
+    try:
+        if name == "cst_create_material":
+            return _handle_create_material(arguments, client)
 
-    if name == "cst_create_material":
-        return _handle_create_material(arguments, client)
+        if name == "cst_create_lossy_metal":
+            return _handle_create_lossy_metal(arguments, client)
 
-    if name == "cst_create_lossy_metal":
-        return _handle_create_lossy_metal(arguments, client)
+        if name == "cst_create_anisotropic_material":
+            return _handle_create_anisotropic_material(arguments, client)
 
-    if name == "cst_create_anisotropic_material":
-        return _handle_create_anisotropic_material(arguments, client)
+        if name == "cst_load_material":
+            return _handle_load_material(arguments, client)
 
-    if name == "cst_load_material":
-        return _handle_load_material(arguments, client)
+        if name == "cst_list_materials":
+            return _handle_list_materials(arguments)
 
-    if name == "cst_list_materials":
-        return _handle_list_materials(arguments)
+        if name == "cst_assign_material":
+            return _handle_assign_material(arguments, client)
 
-    if name == "cst_assign_material":
-        return _handle_assign_material(arguments, client)
+        if name == "cst_get_material_info":
+            return _handle_get_material_info(arguments)
 
-    if name == "cst_get_material_info":
-        return _handle_get_material_info(arguments)
+        if name == "cst_delete_material":
+            return _handle_delete_material(arguments, client)
 
-    if name == "cst_delete_material":
-        return _handle_delete_material(arguments, client)
-
-    raise ValueError(f"Unknown material tool: {name}")
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": f"Unknown material tool: {name}",
+        }))]
+    except Exception as e:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": str(e),
+        }))]
 
 
 # ---------------------------------------------------------------------------
@@ -494,8 +505,10 @@ def _handle_list_materials(args: dict) -> list[TextContent]:
 
     if category == "metals":
         materials = db.get("metals", [])
-    elif category in ("dielectrics", "substrates"):
+    elif category == "dielectrics":
         materials = db.get("dielectrics", [])
+    elif category == "substrates":
+        materials = db.get("substrates", [])
     else:
         # Return all categories
         materials = []
@@ -560,7 +573,8 @@ def _handle_get_material_info(args: dict) -> list[TextContent]:
             type="text",
             text=json.dumps({
                 "tool": "cst_get_material_info",
-                "error": f"Material '{name}' not found in bundled database",
+                "status": "error",
+                "message": f"Material '{name}' not found in bundled database",
                 "available_materials": sorted(available),
             }, indent=2),
         )]

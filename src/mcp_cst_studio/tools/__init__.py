@@ -32,6 +32,11 @@ class ToolRegistry:
         self._tools: list[Tool] = []
         self._handlers: dict[str, ToolHandler] = {}
 
+    def clear(self) -> None:
+        """Remove all registered tools and handlers."""
+        self._tools.clear()
+        self._handlers.clear()
+
     # -- public API used by each register_*_tools function --
 
     def add_tool(self, tool: Tool, handler: ToolHandler) -> None:
@@ -78,6 +83,7 @@ _registry = ToolRegistry()
 
 def register_all_tools(server: Server, client: CSTClient) -> None:
     """Register all tool modules with the MCP server."""
+    _registry.clear()  # prevent duplicate registration on repeated calls
     from mcp_cst_studio.tools.antenna_templates import register_antenna_template_tools
     from mcp_cst_studio.tools.boolean import register_boolean_tools
     from mcp_cst_studio.tools.boundaries import register_boundary_tools

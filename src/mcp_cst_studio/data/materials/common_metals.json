@@ -54,7 +54,7 @@
       "conductivity": 1.44e7,
       "mu_r": 600.0,
       "color": [0.7, 0.7, 0.68],
-      "notes": "Ferromagnetic, used in plating underlayers and shielding"
+      "notes": "Ferromagnetic (mu_r=600). CST requires mu_r to be set explicitly for accurate simulation of nickel plating and shielding"
     }
   ]
 }

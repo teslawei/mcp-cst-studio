@@ -99,9 +99,6 @@ _OPERATION_MAP: dict[str, str] = {
     "cst_boolean_insert": "Insert",
 }
 
-_TOOL_NAMES: set[str] = set(_OPERATION_MAP)
-
-
 # ---------------------------------------------------------------------------
 # Handler
 # ---------------------------------------------------------------------------
@@ -113,13 +110,21 @@ async def handle(
     """Handle a boolean operation tool call."""
     operation = _OPERATION_MAP.get(name)
     if operation is None:
-        return [
-            TextContent(
-                type="text",
-                text=json.dumps({"error": f"Unknown boolean tool: {name}"}),
-            )
-        ]
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": f"Unknown boolean tool: {name}",
+        }))]
 
+    try:
+        return _handle_boolean(operation, arguments, client)
+    except Exception as e:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": str(e),
+        }))]
+
+
+def _handle_boolean(
+    operation: str, arguments: dict, client: CSTClient
+) -> list[TextContent]:
     solid1: str = arguments.get("solid1", "")
     solid2: str = arguments.get("solid2", "")
 

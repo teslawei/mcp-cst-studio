@@ -165,7 +165,6 @@ TOOLS: list[Tool] = [
     ),
 ]
 
-_TOOL_NAMES = {t.name for t in TOOLS}
 
 # ---------------------------------------------------------------------------
 # VBA generation helpers

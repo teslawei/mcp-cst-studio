@@ -167,30 +167,29 @@ TOOLS: list[Tool] = [
     ),
 ]
 
-_TOOL_NAMES = {t.name for t in TOOLS}
-
-
 async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a solver configuration tool call."""
-    if name == "cst_configure_time_domain_solver":
-        return _configure_time_domain(arguments, client)
-    elif name == "cst_configure_frequency_domain_solver":
-        return _configure_frequency_domain(arguments, client)
-    elif name == "cst_configure_eigenmode_solver":
-        return _configure_eigenmode(arguments, client)
-    elif name == "cst_configure_integral_equation_solver":
-        return _configure_integral_equation(arguments, client)
-    elif name == "cst_get_solver_info":
-        return _get_solver_info(arguments, client)
+    try:
+        if name == "cst_configure_time_domain_solver":
+            return _configure_time_domain(arguments, client)
+        elif name == "cst_configure_frequency_domain_solver":
+            return _configure_frequency_domain(arguments, client)
+        elif name == "cst_configure_eigenmode_solver":
+            return _configure_eigenmode(arguments, client)
+        elif name == "cst_configure_integral_equation_solver":
+            return _configure_integral_equation(arguments, client)
+        elif name == "cst_get_solver_info":
+            return _get_solver_info(arguments, client)
 
-    return [
-        TextContent(
-            type="text",
-            text=json.dumps({"error": f"Unknown solver tool: {name}"}),
-        )
-    ]
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": f"Unknown solver tool: {name}",
+        }))]
+    except Exception as e:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": str(e),
+        }))]
 
 
 def _configure_time_domain(arguments: dict, client: CSTClient) -> list[TextContent]:
@@ -246,7 +245,7 @@ def _configure_frequency_domain(arguments: dict, client: CSTClient) -> list[Text
             TextContent(
                 type="text",
                 text=json.dumps(
-                    {"error": f"f_min ({f_min}) must be less than f_max ({f_max})"}
+                    {"status": "error", "message": f"f_min ({f_min}) must be less than f_max ({f_max})"}
                 ),
             )
         ]
@@ -257,7 +256,7 @@ def _configure_frequency_domain(arguments: dict, client: CSTClient) -> list[Text
             TextContent(
                 type="text",
                 text=json.dumps(
-                    {"error": f"Invalid sweep_type '{sweep_type}'. Valid: {valid_sweeps}"}
+                    {"status": "error", "message": f"Invalid sweep_type '{sweep_type}'. Valid: {valid_sweeps}"}
                 ),
             )
         ]

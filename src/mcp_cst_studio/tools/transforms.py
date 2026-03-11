@@ -163,7 +163,6 @@ TOOLS: list[Tool] = [
     ),
 ]
 
-_TOOL_NAMES: set[str] = {t.name for t in TOOLS}
 
 # ---------------------------------------------------------------------------
 # VBA generators for each transform type
@@ -214,13 +213,13 @@ def _build_rotate(args: dict) -> str:
     vba = VBABuilder("Transform")
     vba.call("Reset")
     vba.set("Name", solid)
-    vba.set_number("Origin X", cx)
-    vba.set_number("Origin Y", cy)
-    vba.set_number("Origin Z", cz)
+    vba.set_number("OriginX", cx)
+    vba.set_number("OriginY", cy)
+    vba.set_number("OriginZ", cz)
     vba.set_number("Angle", angle)
-    vba.set("Center X", "0")
-    vba.set("Center Y", "0")
-    vba.set("Center Z", "0")
+    vba.set("CenterX", "0")
+    vba.set("CenterY", "0")
+    vba.set("CenterZ", "0")
 
     # Set the rotation axis — only the selected axis gets the angle
     if axis == "x":
@@ -253,9 +252,9 @@ def _build_mirror(args: dict) -> str:
     vba = VBABuilder("Transform")
     vba.call("Reset")
     vba.set("Name", solid)
-    vba.set_number("Origin X", cx)
-    vba.set_number("Origin Y", cy)
-    vba.set_number("Origin Z", cz)
+    vba.set_number("OriginX", cx)
+    vba.set_number("OriginY", cy)
+    vba.set_number("OriginZ", cz)
     vba.set("PlaneNormal", plane_normal_map[plane])
     vba.set("Copy", _bool_str(copy))
     vba.call_with_args("Transform", "Shape", "Mirror")
@@ -277,9 +276,9 @@ def _build_scale(args: dict) -> str:
     vba = VBABuilder("Transform")
     vba.call("Reset")
     vba.set("Name", solid)
-    vba.set_number("Origin X", cx)
-    vba.set_number("Origin Y", cy)
-    vba.set_number("Origin Z", cz)
+    vba.set_number("OriginX", cx)
+    vba.set_number("OriginY", cy)
+    vba.set_number("OriginZ", cz)
     vba.set_number("ScaleX", sx)
     vba.set_number("ScaleY", sy)
     vba.set_number("ScaleZ", sz)
@@ -306,19 +305,20 @@ async def handle(
     """Handle a transform tool call."""
     builder = _BUILDERS.get(name)
     if builder is None:
-        return [
-            TextContent(
-                type="text",
-                text=json.dumps({"error": f"Unknown transform tool: {name}"}),
-            )
-        ]
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": f"Unknown transform tool: {name}",
+        }))]
 
-    script = builder(arguments)
-    result = client.execute_vba(script)
-    result["transform"] = name.replace("cst_transform_", "")
-    result["solid"] = arguments.get("solid", "")
-
-    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+    try:
+        script = builder(arguments)
+        result = client.execute_vba(script)
+        result["transform"] = name.replace("cst_transform_", "")
+        result["solid"] = arguments.get("solid", "")
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+    except Exception as e:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": str(e),
+        }))]
 
 
 # ---------------------------------------------------------------------------
