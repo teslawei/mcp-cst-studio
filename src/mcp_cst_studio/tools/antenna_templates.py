@@ -378,7 +378,7 @@ TOOLS: list[Tool] = [
                 },
                 "flare_angle": {
                     "type": "number",
-                    "description": "Flare half-angle of each arm in degrees (default 60)",
+                    "description": "Full flare angle of each arm in degrees (default 60)",
                     "default": 60,
                 },
                 "arm_length_mm": {
@@ -405,7 +405,6 @@ TOOLS: list[Tool] = [
     ),
 ]
 
-_TOOL_NAMES = {t.name for t in TOOLS}
 
 # ---------------------------------------------------------------------------
 # VBA helper utilities
@@ -426,6 +425,7 @@ def _build_units_block() -> VBABuilder:
         .set("Frequency", "ghz")
         .set("Time", "ns")
         .set("TemperatureUnit", "kelvin")
+        .call("Apply")
     )
 
 
@@ -454,7 +454,6 @@ def _build_field_monitor(freq_ghz: float, label: str = "farfield") -> VBABuilder
         VBABuilder("Monitor")
         .call("Reset")
         .set("Name", f"{label} (f={freq_ghz})")
-        .set("Dimension", "Volume")
         .set("Domain", "Frequency")
         .set("FieldType", "Farfield")
         .set_number("MonitorValue", freq_ghz)
@@ -468,26 +467,9 @@ def _build_efield_monitor(freq_ghz: float) -> VBABuilder:
         VBABuilder("Monitor")
         .call("Reset")
         .set("Name", f"e-field (f={freq_ghz})")
-        .set("Dimension", "Volume")
         .set("Domain", "Frequency")
         .set("FieldType", "Efield")
         .set_number("MonitorValue", freq_ghz)
-        .call("Create")
-    )
-
-
-def _build_substrate_material(name: str, eps_r: float, tan_d: float) -> VBABuilder:
-    """Define a substrate material."""
-    return (
-        VBABuilder("Material")
-        .call("Reset")
-        .set("Name", name)
-        .set("Type", "Normal")
-        .set_number("Epsilon", eps_r)
-        .set_number("TanD", tan_d)
-        .set_number("Mu", 1)
-        .set("Colour", "0.94", )
-        .set_number("Transparency", 0.5)
         .call("Create")
     )
 
@@ -531,6 +513,8 @@ def _build_cylinder(component: str, name: str, material: str,
                     outer_r: float, inner_r: float,
                     range_min: float, range_max: float) -> str:
     """Build a Cylinder VBA block."""
+    axis_range_map = {"x": "Xrange", "y": "Yrange", "z": "Zrange"}
+    range_prop = axis_range_map.get(axis.lower(), "Zrange")
     return (
         VBABuilder("Cylinder")
         .call("Reset")
@@ -543,7 +527,7 @@ def _build_cylinder(component: str, name: str, material: str,
         .set_number("Xcenter", cx)
         .set_number("Ycenter", cy)
         .set_number("Zcenter", cz)
-        .set_double("Zrange", range_min, range_max)
+        .set_double(range_prop, range_min, range_max)
         .call("Create")
     ).build()
 
@@ -596,7 +580,10 @@ def _build_patch_antenna(args: dict) -> str:
     # R_in(y0) = R_edge * cos^2(pi*y0/L)
     # For 50 ohm: y0 = (L/pi) * arccos(sqrt(50/R_edge))
     # R_edge ~ 90 * eps_r^2 / (eps_r - 1) * (L/W)^2  (approximate)
-    R_edge = 90 * (eps_r ** 2) / (eps_r - 1) * (L / W) ** 2
+    if abs(eps_r - 1.0) < 1e-6:
+        R_edge = 200.0  # free-space approximation for air substrate
+    else:
+        R_edge = 90 * (eps_r ** 2) / (eps_r - 1) * (L / W) ** 2
     if R_edge > 50:
         inset_depth = (L / math.pi) * math.acos(math.sqrt(50 / R_edge))
     else:
@@ -604,14 +591,17 @@ def _build_patch_antenna(args: dict) -> str:
 
     # Feed line width (approximate 50-ohm microstrip)
     # Use Wheeler's approximation
+    # Wheeler synthesis for 50Ω microstrip feed width
     A_w = (50 / 60) * math.sqrt((eps_r + 1) / 2) + (eps_r - 1) / (eps_r + 1) * (0.23 + 0.11 / eps_r)
-    feed_w = h * max(
-        8 * math.exp(A_w) / (math.exp(2 * A_w) - 2),
-        (2 / math.pi) * (
-            (eps_r - 1) / (2 * eps_r) * (math.log(2 * A_w - 1) + 0.39 - 0.61 / eps_r)
-        ) if A_w > 1.52 else 1.0,
-    )
-    feed_w = max(feed_w, 0.5)  # minimum practical width
+    B_w = 377 * math.pi / (2 * 50 * math.sqrt(eps_r))
+    # Try narrow-strip first; if W/h >= 2, switch to wide-strip formula
+    wh = 8 * math.exp(A_w) / (math.exp(2 * A_w) - 2)
+    if wh >= 2:
+        wh = (2 / math.pi) * (
+            B_w - 1 - math.log(2 * B_w - 1)
+            + (eps_r - 1) / (2 * eps_r) * (math.log(B_w - 1) + 0.39 - 0.61 / eps_r)
+        )
+    feed_w = max(h * wh, 0.5)  # minimum practical width
 
     # Inset gap width
     inset_gap = feed_w * 0.5
@@ -693,6 +683,13 @@ def _build_patch_antenna(args: dict) -> str:
             -L / 2 - 0.1, -L / 2 + inset_depth,
             h, h + 0.035,
         ))
+        # Boolean subtract inset slots from patch
+        sub_vba_l = VBABuilder("Solid")
+        sub_vba_l.call_with_args("Subtract", "Antenna:Patch", "Antenna:InsetSlotL")
+        script.add_block(sub_vba_l)
+        sub_vba_r = VBABuilder("Solid")
+        sub_vba_r.call_with_args("Subtract", "Antenna:Patch", "Antenna:InsetSlotR")
+        script.add_block(sub_vba_r)
         # Feed line on top of substrate from edge to patch
         feed_length = gnd_y / 2 - L / 2
         script.add_raw(_build_brick(
@@ -1099,32 +1096,32 @@ def _build_horn_antenna(args: dict) -> str:
         "' Create rear profile (waveguide end) at z=0",
     ]
 
-    # Rear profile curve
+    # Rear profile curve (at z=0)
     rear_curve = (
-        VBABuilder("Polygon")
+        VBABuilder("Polygon3D")
         .call("Reset")
         .set("Name", "rear_profile")
         .set("Curve", "horn_curves")
-        .set_double("Point", -a_wg / 2, -b_wg / 2)
-        .set_double("LineTo", a_wg / 2, -b_wg / 2)
-        .set_double("LineTo", a_wg / 2, b_wg / 2)
-        .set_double("LineTo", -a_wg / 2, b_wg / 2)
-        .set_double("LineTo", -a_wg / 2, -b_wg / 2)
+        .set_triple("Point", -a_wg / 2, -b_wg / 2, 0)
+        .set_triple("LineTo", a_wg / 2, -b_wg / 2, 0)
+        .set_triple("LineTo", a_wg / 2, b_wg / 2, 0)
+        .set_triple("LineTo", -a_wg / 2, b_wg / 2, 0)
+        .set_triple("LineTo", -a_wg / 2, -b_wg / 2, 0)
         .call("Create")
     )
     script.add_block(rear_curve)
 
-    # Front profile curve
+    # Front profile curve (at z=horn_length)
     front_curve = (
-        VBABuilder("Polygon")
+        VBABuilder("Polygon3D")
         .call("Reset")
         .set("Name", "front_profile")
         .set("Curve", "horn_curves")
-        .set_double("Point", -A1 / 2, -B1 / 2)
-        .set_double("LineTo", A1 / 2, -B1 / 2)
-        .set_double("LineTo", A1 / 2, B1 / 2)
-        .set_double("LineTo", -A1 / 2, B1 / 2)
-        .set_double("LineTo", -A1 / 2, -B1 / 2)
+        .set_triple("Point", -A1 / 2, -B1 / 2, horn_length)
+        .set_triple("LineTo", A1 / 2, -B1 / 2, horn_length)
+        .set_triple("LineTo", A1 / 2, B1 / 2, horn_length)
+        .set_triple("LineTo", -A1 / 2, B1 / 2, horn_length)
+        .set_triple("LineTo", -A1 / 2, -B1 / 2, horn_length)
         .call("Create")
     )
     script.add_block(front_curve)
@@ -1188,12 +1185,12 @@ def _build_yagi_antenna(args: dict) -> str:
     director_base_len = 0.440 * lam0  # first director
 
     # Spacings
-    refl_spacing = 0.25 * lam0  # reflector behind driven
-    dir_spacing_base = 0.34 * lam0
+    refl_spacing = 0.20 * lam0  # reflector behind driven (NBS/Viezbicke)
+    dir_spacing_base = 0.25 * lam0
     dir_spacing_inc = 0.0  # uniform spacing for simplicity
 
     # Director progressive shortening
-    dir_shortening = 0.005 * lam0  # per element
+    dir_shortening = 0.01 * lam0  # per element
 
     f_min = freq * 0.8
     f_max = freq * 1.2
@@ -1244,27 +1241,10 @@ def _build_yagi_antenna(args: dict) -> str:
             .set_number("Xcenter", 0)
             .set_number("Ycenter", 0)
             .set_number("Zcenter", z_pos)
-            .set_double("Zrange", z_pos - wire_r, z_pos + wire_r)
-        )
-        # Cylinder axis is x, so use Xrange for the element length
-        # Reset — CST Cylinder Zrange is always the axis range,
-        # but we set Axis=x, so we use the range on x
-        elem_vba2 = (
-            VBABuilder("Cylinder")
-            .call("Reset")
-            .set("Name", name)
-            .set("Component", "Yagi")
-            .set("Material", "PEC")
-            .set("Axis", "x")
-            .set_number("Outerradius", wire_r)
-            .set_number("Innerradius", 0)
-            .set_number("Xcenter", 0)
-            .set_number("Ycenter", 0)
-            .set_number("Zcenter", z_pos)
-            .set_double("Zrange", -length / 2, length / 2)
+            .set_double("Xrange", -length / 2, length / 2)
             .call("Create")
         )
-        script.add_block(elem_vba2)
+        script.add_block(elem_vba)
 
     # Discrete port at driven element center (small gap)
     gap = wire_r * 4
@@ -1674,6 +1654,10 @@ def _build_slot_antenna(args: dict) -> str:
         -slot_width / 2, slot_width / 2,
         -0.035, 0,
     ))
+    # Boolean subtract slot from ground plane
+    sub_vba = VBABuilder("Solid")
+    sub_vba.call_with_args("Subtract", "Slot:GroundPlane", "Slot:SlotCut")
+    script.add_block(sub_vba)
 
     # Feed line crossing the slot (perpendicular, on z=-0.035 side)
     script.add_raw(_build_brick(

@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
+from mcp_cst_studio.vba_builder import VBABuilder, VBAScript, _escape_vba_string
 from mcp_cst_studio.validators import validate_name, validate_positive
 
 if TYPE_CHECKING:
@@ -130,6 +130,11 @@ TOOLS: list[Tool] = [
                     "type": "integer",
                     "description": "Number of steps in the sweep (minimum 2).",
                 },
+                "simulation_type": {
+                    "type": "string",
+                    "enum": ["Transient", "Frequency Domain", "Eigenmode", "Integral Equation"],
+                    "description": "Solver type for the sweep. Defaults to Transient.",
+                },
             },
             "required": ["parameter", "start", "stop", "steps"],
         },
@@ -209,7 +214,6 @@ TOOLS: list[Tool] = [
     ),
 ]
 
-_TOOL_NAMES = {t.name for t in TOOLS}
 
 # ---------------------------------------------------------------------------
 # VBA generation helpers
@@ -222,16 +226,20 @@ def _build_set_parameter(args: dict) -> str:
     value = args["value"]
     description = args.get("description")
 
+    safe_name = _escape_vba_string(name)
+    safe_value = _escape_vba_string(str(value))
+
     script = VBAScript()
     script.add_comment(f"Set parameter: {name} = {value}")
 
     # Use MakeSureParameterExists to create if missing, then StoreParameter to set
     lines = [
-        f'MakeSureParameterExists "{name}", "{value}"',
-        f'StoreParameter "{name}", "{value}"',
+        f'MakeSureParameterExists "{safe_name}", "{safe_value}"',
+        f'StoreParameter "{safe_name}", "{safe_value}"',
     ]
     if description:
-        lines.append(f'SetParameterDescription "{name}", "{description}"')
+        safe_desc = _escape_vba_string(description)
+        lines.append(f'SetParameterDescription "{safe_name}", "{safe_desc}"')
 
     script.add_raw("\n".join(lines))
 
@@ -244,14 +252,15 @@ def _build_set_parameter(args: dict) -> str:
 def _build_get_parameter(args: dict) -> str:
     """Build VBA script to retrieve a parameter value."""
     name = validate_name(args["name"], "parameter name")
+    safe_name = _escape_vba_string(name)
 
     script = VBAScript()
     script.add_comment(f"Get parameter: {name}")
 
     lines = [
         "Dim dValue As Double",
-        f'dValue = RestoreParameter("{name}")',
-        f'MsgBox "Parameter {name} = " & CStr(dValue)',
+        f'dValue = RestoreParameter("{safe_name}")',
+        f'MsgBox "Parameter {safe_name} = " & CStr(dValue)',
     ]
     script.add_raw("\n".join(lines))
     return script.build()
@@ -281,10 +290,11 @@ def _build_list_parameters(args: dict) -> str:
 def _build_delete_parameter(args: dict) -> str:
     """Build VBA script to delete a parameter."""
     name = validate_name(args["name"], "parameter name")
+    safe_name = _escape_vba_string(name)
 
     script = VBAScript()
     script.add_comment(f"Delete parameter: {name}")
-    script.add_raw(f'DeleteParameter "{name}"')
+    script.add_raw(f'DeleteParameter "{safe_name}"')
     script.add_raw("RebuildOnParametricChange False, True")
     return script.build()
 
@@ -295,6 +305,7 @@ def _build_parameter_sweep(args: dict) -> str:
     start = float(args["start"])
     stop = float(args["stop"])
     steps = int(args["steps"])
+    sim_type = args.get("simulation_type", "Transient")
 
     if steps < 2:
         raise ValueError("Parameter sweep requires at least 2 steps")
@@ -305,7 +316,7 @@ def _build_parameter_sweep(args: dict) -> str:
     vba = (
         VBABuilder("ParameterSweep")
         .call("Reset")
-        .set("SimulationType", "Transient")
+        .set("SimulationType", sim_type)
         .call_with_args("AddParameter_Linear", parameter, str(start), str(stop), str(steps))
         .call("Create")
     )
@@ -314,7 +325,16 @@ def _build_parameter_sweep(args: dict) -> str:
 
 
 def _build_optimizer(args: dict) -> str:
-    """Build VBA script to configure an optimization."""
+    """Build VBA script to configure an optimization.
+
+    CST Optimizer API requires this call order within the With block:
+    1. Reset
+    2. SetOptimizerType, SetMaxEvaluations (optimizer config)
+    3. SetGoalOperator, SetGoalTarget, SetGoalRangeMin/Max, SetGoalResult (goal setup)
+    4. InitGoal
+    5. Per-parameter: SelectParameter, SetParameterMin, SetParameterMax, AddSelectedParameter
+    6. Start
+    """
     goal_type = args["goal_type"]
     goal_value = args.get("goal_value", 0)
     result_path = args["result_path"]
@@ -331,7 +351,14 @@ def _build_optimizer(args: dict) -> str:
     script = VBAScript()
     script.add_comment(f"Optimization: {goal_type} {result_path}")
 
-    # Configure the optimizer object
+    # Map goal types to CST operator strings
+    goal_operator_map = {
+        "minimize": "Min",
+        "maximize": "Max",
+        "target": "=",
+    }
+
+    # Build the Optimizer With block with correct CST API method order
     vba = (
         VBABuilder("Optimizer")
         .call("Reset")
@@ -339,21 +366,17 @@ def _build_optimizer(args: dict) -> str:
         .set_number("SetMaxEvaluations", max_evaluations)
     )
 
-    # Set the optimization goal
-    goal_map = {
-        "minimize": "Min",
-        "maximize": "Max",
-        "target": "Target",
-    }
-    vba.set("SetGoalType", goal_map[goal_type])
+    # Set the optimization goal properties
+    vba.set("SetGoalOperator", goal_operator_map[goal_type])
     vba.set("SetGoalResult", result_path)
 
     if goal_type == "target":
         vba.set_number("SetGoalTarget", goal_value)
 
+    # InitGoal commits the goal configuration
     vba.call("InitGoal")
 
-    # Add parameters with ranges
+    # Add parameters with ranges using CST's per-parameter API
     for param in parameters:
         param_name = validate_name(param["name"], "optimizer parameter name")
         param_min = float(param["min"])
@@ -362,7 +385,10 @@ def _build_optimizer(args: dict) -> str:
             raise ValueError(
                 f"Parameter '{param_name}' min ({param_min}) must be less than max ({param_max})"
             )
-        vba.call_with_args("AddParameter", param_name, str(param_min), str(param_max))
+        vba.call_with_args("SelectParameter", param_name)
+        vba.set_number("SetParameterMin", param_min)
+        vba.set_number("SetParameterMax", param_max)
+        vba.call("AddSelectedParameter")
 
     vba.call("Start")
     script.add_block(vba)

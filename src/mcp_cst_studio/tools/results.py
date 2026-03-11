@@ -537,8 +537,13 @@ def _build_vswr_vba(port: int) -> str:
         "      Dim s11_db As Double, s11_mag As Double",
         '      s11_db = Result1D("").GetY(i)',
         "      s11_mag = 10^(s11_db / 20.0)",
-        "      vswr = (1 + s11_mag) / (1 - s11_mag)",
-        "      If vswr < 0 Then vswr = 999  ' Clamp if |S11| > 1",
+        "      If Abs(s11_mag - 1.0) < 0.0000000001 Then",
+        "        vswr = 999.9  ' |S11|=1.0: total reflection",
+        "      ElseIf s11_mag > 1.0 Then",
+        "        vswr = 999.9  ' |S11|>1.0: active device or error",
+        "      Else",
+        "        vswr = (1 + s11_mag) / (1 - s11_mag)",
+        "      End If",
         '      Debug.Print freq & "," & vswr',
         "    Next i",
         "  End If",
@@ -655,6 +660,9 @@ def _build_export_result_vba(
     script.add_comment(f"Export result '{result_path}' to {fmt.upper()}: {output_file}")
     script.add_blank()
 
+    # Escape backslashes in file path for VBA string
+    escaped_output = output_file.replace("\\", "\\\\")
+
     if fmt == "touchstone":
         lines = [
             "Sub Main()",
@@ -664,59 +672,43 @@ def _build_export_result_vba(
             "  Dim sTouchstone As Object",
             "  Set sTouchstone = TouchstoneExport",
             "  sTouchstone.Reset",
-            f'  sTouchstone.FileName "{output_file}"',
+            f'  sTouchstone.FileName "{escaped_output}"',
             '  sTouchstone.FrequencyRange "Full"',
             "  sTouchstone.Renormalize 50",
             '  sTouchstone.UseARResults "False"',
             "  sTouchstone.Write",
             "End Sub",
         ]
+        script.add_raw("\n".join(lines))
     elif fmt == "csv":
-        lines = [
-            "Sub Main()",
-            f'  SelectTreeItem "{result_path}"',
-            "",
-            "  ' Export result data as ASCII/CSV",
-            "  Dim res As Object",
-            '  Set res = Result1D("")',
-            "",
-            "  Dim nPoints As Long",
-            "  nPoints = res.GetN",
-            "",
-            f'  Open "{output_file}" For Output As #1',
-            '  Print #1, "Frequency,Value"',
-            "",
-            "  Dim i As Long",
-            "  For i = 0 To nPoints - 1",
-            "    Print #1, res.GetX(i) & \",\" & res.GetY(i)",
-            "  Next i",
-            "  Close #1",
-            "End Sub",
-        ]
+        # Use CST's native ASCIIExport for CSV
+        export_vba = (
+            VBABuilder("ASCIIExport")
+            .call("Reset")
+            .set("FileName", output_file)
+            .set("Mode", "CSV")
+        )
+        script.add_comment(f'SelectTreeItem "{result_path}"')
+        script.add_block(export_vba)
+        call_vba = VBABuilder("ASCIIExport")
+        call_vba.raw_line(f'SelectTreeItem "{result_path}"')
+        call_vba.raw_line('ASCIIExport.Execute')
+        script.add_block(call_vba)
     else:
-        # txt format
-        lines = [
-            "Sub Main()",
-            f'  SelectTreeItem "{result_path}"',
-            "",
-            "  ' Export result data as space-separated text",
-            "  Dim res As Object",
-            '  Set res = Result1D("")',
-            "",
-            "  Dim nPoints As Long",
-            "  nPoints = res.GetN",
-            "",
-            f'  Open "{output_file}" For Output As #1',
-            "",
-            "  Dim i As Long",
-            "  For i = 0 To nPoints - 1",
-            '    Print #1, res.GetX(i) & " " & res.GetY(i)',
-            "  Next i",
-            "  Close #1",
-            "End Sub",
-        ]
+        # txt format — use CST's native ASCIIExport with FixedWidth mode
+        export_vba = (
+            VBABuilder("ASCIIExport")
+            .call("Reset")
+            .set("FileName", output_file)
+            .set("Mode", "FixedWidth")
+        )
+        script.add_comment(f'SelectTreeItem "{result_path}"')
+        script.add_block(export_vba)
+        call_vba = VBABuilder("ASCIIExport")
+        call_vba.raw_line(f'SelectTreeItem "{result_path}"')
+        call_vba.raw_line('ASCIIExport.Execute')
+        script.add_block(call_vba)
 
-    script.add_raw("\n".join(lines))
     return script.build()
 
 
@@ -837,6 +829,14 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
 
     Returns a list of TextContent with JSON-encoded results.
     """
+    try:
+        return await _handle_impl(name, arguments, client)
+    except Exception as e:
+        return _text({"status": "error", "message": str(e)})
+
+
+async def _handle_impl(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:
+    """Internal implementation of the result tool handler."""
 
     # ------------------------------------------------------------------
     # cst_get_s_parameters
@@ -1350,8 +1350,6 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
 # ---------------------------------------------------------------------------
 # Registration helper (used by tools/__init__.py)
 # ---------------------------------------------------------------------------
-
-_TOOL_NAMES: set[str] = {tool.name for tool in TOOLS}
 
 
 def register_result_tools(server: Server, client: CSTClient) -> None:

@@ -15,7 +15,7 @@ from mcp.types import Tool, TextContent
 
 from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
-from mcp_cst_studio.validators import validate_name, validate_positive
+from mcp_cst_studio.validators import validate_file_path, validate_name, validate_positive
 
 if TYPE_CHECKING:
     from mcp.server import Server
@@ -177,9 +177,10 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_pcb_create_via",
         description=(
-            "Create a PCB via (through, blind, or buried) in CST Studio. Generates a "
-            "cylindrical barrel, annular pads on signal layers, and antipads in "
-            "ground/power planes."
+            "Create a PCB via (through, blind, or buried) in CST Studio. Generates "
+            "the cylindrical via barrel with specified drill and pad dimensions. "
+            "Pad and antipad diameters are validated and reported but the geometry "
+            "covers the barrel only; add pads separately if needed."
         ),
         inputSchema={
             "type": "object",
@@ -344,7 +345,6 @@ TOOLS: list[Tool] = [
     ),
 ]
 
-_TOOL_NAMES = {t.name for t in TOOLS}
 
 # ---------------------------------------------------------------------------
 # Impedance calculation helpers
@@ -376,7 +376,7 @@ def _microstrip_impedance(w: float, h: float, er: float, t: float = 0.035) -> fl
 
     # Hammerstad-Jensen effective dielectric constant
     f_u = 6.0 + (2.0 * math.pi - 6.0) * math.exp(-(30.666 / u) ** 0.7528)
-    eps_eff = 0.5 * (er + 1.0) + 0.5 * (er - 1.0) * (1.0 + 10.0 / u) ** (-0.5 * f_u)  # noqa: E501
+    eps_eff = 0.5 * (er + 1.0) + 0.5 * (er - 1.0) * (1.0 + 10.0 / u) ** (-0.5)  # noqa: E501
 
     # Hammerstad-Jensen impedance
     f = 6.0 + (2.0 * math.pi - 6.0) * math.exp(-(30.666 / u) ** 0.7528)
@@ -465,7 +465,7 @@ def _stripline_impedance(w: float, h: float, er: float, t: float = 0.035) -> flo
         )
     else:
         cf = 2.0 * math.pi
-        z0 = (94.15 / math.sqrt(er)) / (
+        z0 = (94.25 / math.sqrt(er)) / (
             we / b + cf * math.log(1.0 + 1.0 / math.tanh(cf * we / (2.0 * b)))  # noqa: E501
             / math.pi
         )
@@ -933,7 +933,7 @@ async def _handle_import_gerber(
     arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Import a Gerber file into CST Studio."""
-    file_path = arguments["file_path"]
+    file_path = validate_file_path(arguments["file_path"])
     layer_name = validate_name(arguments["layer_name"], "layer_name")
     file_type = arguments.get("file_type", "gerber")
 
@@ -1046,25 +1046,27 @@ async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a PCB tool call."""
-    if name == "cst_pcb_create_stackup":
-        return await _handle_create_stackup(arguments, client)
-    if name == "cst_pcb_create_trace":
-        return await _handle_create_trace(arguments, client)
-    if name == "cst_pcb_create_via":
-        return await _handle_create_via(arguments, client)
-    if name == "cst_pcb_create_ground_plane":
-        return await _handle_create_ground_plane(arguments, client)
-    if name == "cst_pcb_import_gerber":
-        return await _handle_import_gerber(arguments, client)
-    if name == "cst_pcb_list_stackup_templates":
-        return await _handle_list_stackup_templates(arguments, client)
+    try:
+        if name == "cst_pcb_create_stackup":
+            return await _handle_create_stackup(arguments, client)
+        if name == "cst_pcb_create_trace":
+            return await _handle_create_trace(arguments, client)
+        if name == "cst_pcb_create_via":
+            return await _handle_create_via(arguments, client)
+        if name == "cst_pcb_create_ground_plane":
+            return await _handle_create_ground_plane(arguments, client)
+        if name == "cst_pcb_import_gerber":
+            return await _handle_import_gerber(arguments, client)
+        if name == "cst_pcb_list_stackup_templates":
+            return await _handle_list_stackup_templates(arguments, client)
 
-    return [
-        TextContent(
-            type="text",
-            text=json.dumps({"error": f"Unknown PCB tool: {name}"}),
-        )
-    ]
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": f"Unknown PCB tool: {name}",
+        }))]
+    except Exception as e:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": str(e),
+        }))]
 
 
 def register_pcb_tools(server: Server, client: CSTClient) -> None:

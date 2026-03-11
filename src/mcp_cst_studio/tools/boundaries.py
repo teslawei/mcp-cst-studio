@@ -155,28 +155,27 @@ TOOLS: list[Tool] = [
     ),
 ]
 
-_TOOL_NAMES = {t.name for t in TOOLS}
-
-
 async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a boundary/domain tool call."""
-    if name == "cst_set_boundary":
-        return await _handle_set_boundary(arguments, client)
-    if name == "cst_set_background":
-        return await _handle_set_background(arguments, client)
-    if name == "cst_set_symmetry":
-        return await _handle_set_symmetry(arguments, client)
-    if name == "cst_set_frequency_range":
-        return await _handle_set_frequency_range(arguments, client)
+    try:
+        if name == "cst_set_boundary":
+            return await _handle_set_boundary(arguments, client)
+        if name == "cst_set_background":
+            return await _handle_set_background(arguments, client)
+        if name == "cst_set_symmetry":
+            return await _handle_set_symmetry(arguments, client)
+        if name == "cst_set_frequency_range":
+            return await _handle_set_frequency_range(arguments, client)
 
-    return [
-        TextContent(
-            type="text",
-            text=json.dumps({"error": f"Unknown boundary tool: {name}"}),
-        )
-    ]
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": f"Unknown boundary tool: {name}",
+        }))]
+    except Exception as e:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error", "message": str(e),
+        }))]
 
 
 async def _handle_set_boundary(
