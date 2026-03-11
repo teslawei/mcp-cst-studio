@@ -1019,11 +1019,10 @@ def _build_horn_antenna(args: dict) -> str:
     B1 = math.sqrt(A_phys / aspect)
     A1 = A_phys / B1
 
-    # Horn length from Balanis — optimum horn
-    # R_H (E-plane slant) = B1^2 / (2*lambda), R_E similar
-    # Axial length L ~ R_H for moderate gain
-    R_H = B1 ** 2 / (2 * lam0)
-    R_E = A1 ** 2 / (3 * lam0)
+    # Horn length from Balanis Eq. 13-48a/b — optimum pyramidal horn
+    # R_H depends on H-plane aperture A1, R_E depends on E-plane aperture B1
+    R_H = A1 ** 2 / (3 * lam0)  # H-plane slant length
+    R_E = B1 ** 2 / (2 * lam0)  # E-plane slant length
     horn_length = max(R_H, R_E)
     horn_length = max(horn_length, 2 * lam0)  # minimum practical length
 
