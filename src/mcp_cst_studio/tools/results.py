@@ -674,8 +674,8 @@ def _build_export_result_vba(
     elif fmt in ("csv", "txt"):
         # Use CST's built-in ASCIIExport object — avoids raw file I/O
         # that would be blocked by the VBA security validator.
-        separator = "," if fmt == "csv" else " "
-        step_width = "0"  # 0 = export all data points (no interpolation)
+        # Note: CST ASCIIExport always uses space-separated columns regardless
+        # of SetfileType. SetSeparator/StepWidth do NOT exist in CST 2025.
         lines = [
             "Sub Main()",
             f'  SelectTreeItem "{result_path}"',
@@ -684,8 +684,7 @@ def _build_export_result_vba(
             "  With ASCIIExport",
             "    .Reset",
             f'    .FileName "{output_file}"',
-            f'    .SetSeparator "{separator}"',
-            f'    .StepWidth "{step_width}"',
+            f'    .SetfileType "{fmt}"',
             "    .Execute",
             "  End With",
             "End Sub",
