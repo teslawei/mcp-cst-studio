@@ -193,6 +193,69 @@ class CSTClient:
             "message": "VBA script generated. Execute in CST Studio Suite on Windows.",
         }
 
+    def execute_vba_silent(self, vba_code: str) -> dict:
+        """Execute VBA without adding to project history.
+
+        Uses ``schematic.execute_vba_code()`` which runs the macro silently.
+        The code must be wrapped in ``Sub Main() ... End Sub``.
+        Ideal for optimization loops where dozens of iterations would
+        otherwise bloat the history list.
+
+        In offline mode: returns the VBA script for manual execution.
+        """
+        if self.connected and self._project is not None:
+            try:
+                self._project.schematic.execute_vba_code(vba_code)
+                return {"status": "executed"}
+            except Exception as e:
+                return {"status": "error", "message": str(e), "vba": vba_code}
+
+        return {
+            "status": "offline",
+            "vba": vba_code,
+            "message": "VBA script generated (silent). Execute in CST Studio Suite.",
+        }
+
+    def run_solver(self) -> dict:
+        """Run the solver via Python API (no VBA, no history entry).
+
+        Uses ``model3d.run_solver()`` which blocks until complete.
+        """
+        if self.connected and self._project is not None:
+            try:
+                result = self._project.model3d.run_solver()
+                return {"status": "executed", "result": str(result) if result else "ok"}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+
+        return {"status": "offline", "message": "Solver requires connected mode."}
+
+    def export_result(self, tree_path: str, filepath: str) -> dict:
+        """Export a result tree item to CSV via Python API (no history entry).
+
+        Uses ``model3d.SelectTreeItem()`` + ``model3d.ASCIIExport`` Python
+        methods directly — avoids VBA and history bloat.  Works regardless of
+        the current CST view state.
+        """
+        if self.connected and self._project is not None:
+            try:
+                m3d = self._project.model3d
+                m3d.SelectTreeItem(tree_path)
+                ae = m3d.ASCIIExport
+                ae.Reset()
+                ae.FileName(filepath.replace("\\", "/"))
+                ae.SetFileType("csv")
+                ae.Execute()
+                return {"status": "exported", "path": filepath}
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+
+        return {
+            "status": "offline",
+            "tree_path": tree_path,
+            "message": "Result export requires connected mode.",
+        }
+
     def get_result(self, tree_path: str) -> dict:
         """Get a result from the CST result tree."""
         if self.connected and self._project is not None:
