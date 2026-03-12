@@ -48,7 +48,11 @@ class CSTClient:
         return "connected" if self.connected else "offline"
 
     def connect(self) -> dict:
-        """Connect to CST Design Environment."""
+        """Connect to CST Design Environment.
+
+        First tries to connect to an already-running instance. If none
+        is running, launches a new one.
+        """
         if not CST_AVAILABLE:
             return {
                 "status": "offline",
@@ -57,9 +61,27 @@ class CSTClient:
             }
 
         try:
+            # Try connecting to an already-running CST instance first
+            running = cst.interface.running_design_environments()
+            if running:
+                self._de = cst.interface.DesignEnvironment.connect(running[0])
+                self._config.connected = True
+                # Pick up any already-open project
+                open_projects = self._de.get_open_projects()
+                if open_projects:
+                    self._project = open_projects[0]
+                    fname = self._project.filename
+                    self._project_path = str(fname() if callable(fname) else fname)
+                return {
+                    "status": "connected",
+                    "message": f"Connected to running CST instance (PID {running[0]})",
+                    "open_projects": len(open_projects) if open_projects else 0,
+                }
+
+            # No running instance — launch a new one
             self._de = cst.interface.DesignEnvironment()
             self._config.connected = True
-            return {"status": "connected", "message": "Connected to CST Design Environment"}
+            return {"status": "connected", "message": "Launched new CST Design Environment"}
         except Exception as e:
             self._config.connected = False
             return {
@@ -147,15 +169,20 @@ class CSTClient:
         self._project_path = None
         return {"status": "closed", "message": "Project reference cleared."}
 
-    def execute_vba(self, vba_code: str) -> dict:
+    _history_counter: int = 0
+
+    def execute_vba(self, vba_code: str, history_label: str | None = None) -> dict:
         """Execute VBA code in CST.
 
-        In connected mode: executes directly and returns result.
+        In connected mode: executes via ``model3d.add_to_history()`` which
+        adds the VBA macro to the project history and runs it immediately.
         In offline mode: returns the VBA script for manual execution.
         """
         if self.connected and self._project is not None:
             try:
-                result = self._project.schematic.execute_vba_code(vba_code)
+                CSTClient._history_counter += 1
+                label = history_label or f"mcp_action_{CSTClient._history_counter}"
+                result = self._project.model3d.add_to_history(label, vba_code)
                 return {"status": "executed", "result": str(result) if result else "ok"}
             except Exception as e:
                 return {"status": "error", "message": str(e), "vba": vba_code}

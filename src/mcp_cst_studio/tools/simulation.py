@@ -150,31 +150,36 @@ async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a simulation control tool call."""
+    try:
+        if name == "cst_run_simulation":
+            return _handle_run_simulation(arguments, client, async_mode=False)
 
-    if name == "cst_run_simulation":
-        return _handle_run_simulation(arguments, client, async_mode=False)
+        if name == "cst_run_simulation_async":
+            return _handle_run_simulation(arguments, client, async_mode=True)
 
-    if name == "cst_run_simulation_async":
-        return _handle_run_simulation(arguments, client, async_mode=True)
+        if name == "cst_get_simulation_status":
+            return _handle_get_status(client)
 
-    if name == "cst_get_simulation_status":
-        return _handle_get_status(client)
+        if name == "cst_pause_simulation":
+            return _handle_simple_solver_command("Pause", client)
 
-    if name == "cst_pause_simulation":
-        return _handle_simple_solver_command("Pause", client)
+        if name == "cst_resume_simulation":
+            return _handle_simple_solver_command("Resume", client)
 
-    if name == "cst_resume_simulation":
-        return _handle_simple_solver_command("Resume", client)
+        if name == "cst_stop_simulation":
+            return _handle_simple_solver_command("Stop", client)
 
-    if name == "cst_stop_simulation":
-        return _handle_simple_solver_command("Stop", client)
-
-    return [
-        TextContent(
+        return [
+            TextContent(
+                type="text",
+                text=json.dumps({"error": f"Unknown simulation tool: {name}"}),
+            )
+        ]
+    except Exception as e:
+        return [TextContent(
             type="text",
-            text=json.dumps({"error": f"Unknown simulation tool: {name}"}),
-        )
-    ]
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 def _handle_run_simulation(

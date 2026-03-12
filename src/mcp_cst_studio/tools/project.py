@@ -368,6 +368,17 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
 
     Returns a list of TextContent with JSON-encoded results.
     """
+    try:
+        return await _handle_dispatch(name, arguments, client)
+    except Exception as e:
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
+
+
+async def _handle_dispatch(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:
+    """Dispatch a project tool call (inner implementation)."""
 
     # ------------------------------------------------------------------
     # cst_create_project
