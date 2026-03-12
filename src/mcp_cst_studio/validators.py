@@ -75,7 +75,9 @@ def validate_vba_input(vba_code: str) -> str:
 
 
 def validate_file_path(path: str, work_dir: str | None = None) -> str:
-    """Validate a file path — block traversal and check extension."""
+    """Validate a file path — block traversal and enforce work_dir confinement."""
+    import os
+
     if not path:
         raise ValidationError("File path cannot be empty")
 
@@ -84,8 +86,11 @@ def validate_file_path(path: str, work_dir: str | None = None) -> str:
     if ".." in normalized:
         raise ValidationError("Path traversal ('..') is not allowed")
 
-    if normalized.startswith("/") and work_dir:
-        if not normalized.startswith(work_dir.replace("\\", "/")):
+    if work_dir and os.path.isabs(path):
+        abs_path = os.path.normpath(os.path.abspath(path))
+        abs_work = os.path.normpath(os.path.abspath(work_dir))
+        # Ensure the path is within (or equal to) the work directory
+        if not abs_path.startswith(abs_work + os.sep) and abs_path != abs_work:
             raise ValidationError(f"Path must be within work directory: {work_dir}")
 
     return path

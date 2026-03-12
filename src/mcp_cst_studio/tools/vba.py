@@ -86,10 +86,14 @@ TOOLS: list[Tool] = [
                         "geometry",
                         "solver",
                         "material",
-                        "result",
-                        "port",
                         "mesh",
                         "boundary",
+                        "excitation",
+                        "monitor",
+                        "postprocessing",
+                        "optimization",
+                        "settings",
+                        "interaction",
                     ],
                     "description": (
                         "Optional category filter. If omitted, all categories are returned."
@@ -111,24 +115,46 @@ _vba_reference: dict | None = None
 
 
 def _load_vba_reference() -> dict:
-    """Load the bundled VBA reference data from the package data directory."""
+    """Load the bundled VBA reference data and group by category.
+
+    The raw JSON has structure ``{"objects": {"Brick": {"category": "geometry", ...}}}``.
+    This function returns ``{"geometry": {"Brick": {...}}, ...}`` for easy lookup.
+    """
     global _vba_reference
     if _vba_reference is not None:
         return _vba_reference
 
+    raw: dict = {}
     # Locate data/vba_reference.json relative to the package
     data_path = Path(__file__).resolve().parent.parent / "data" / "vba_reference.json"
     if data_path.exists():
         with open(data_path, "r") as f:
-            _vba_reference = json.load(f)
+            raw = json.load(f)
     else:
         # Fallback: try importlib.resources for installed packages
         try:
             ref = resources.files("mcp_cst_studio") / "data" / "vba_reference.json"
-            _vba_reference = json.loads(ref.read_text(encoding="utf-8"))
+            raw = json.loads(ref.read_text(encoding="utf-8"))
         except Exception:
-            _vba_reference = {}
+            raw = {}
 
+    # Restructure from flat {"objects": {name: {category, ...}}} to {category: {name: {...}}}
+    grouped: dict[str, dict] = {}
+    objects = raw.get("objects", raw)  # support both flat and already-grouped formats
+    if isinstance(objects, dict) and all(
+        isinstance(v, dict) and "category" in v for v in list(objects.values())[:1]
+    ):
+        # Flat format: group by category field
+        for obj_name, obj_data in objects.items():
+            cat = obj_data.get("category", "other")
+            if cat not in grouped:
+                grouped[cat] = {}
+            grouped[cat][obj_name] = obj_data
+    else:
+        # Already grouped or unknown format — use as-is
+        grouped = raw
+
+    _vba_reference = grouped
     return _vba_reference
 
 
@@ -229,18 +255,37 @@ def _handle_list_vba_objects(args: dict) -> dict:
     return result
 
 
-def _build_usage_example(object_name: str, methods: list[str]) -> str:
-    """Build a simple VBA usage example for an object."""
+_NO_ARG_METHODS = frozenset({
+    "Reset", "Create", "Delete", "Start", "Execute", "Apply",
+    "Update", "Write", "Read", "Export",
+})
+
+
+def _build_usage_example(object_name: str, methods: list) -> str:
+    """Build a simple VBA usage example for an object.
+
+    *methods* may be a list of strings or a list of dicts with ``name``/``args`` keys.
+    """
     if not methods:
         return ""
 
     lines = [f"With {object_name}"]
     for method in methods[:5]:  # Show first 5 methods as example
-        if method in ("Reset", "Create", "Delete", "Start", "Execute", "Apply",
-                       "Update", "Write", "Read", "Export"):
-            lines.append(f"  .{method}")
+        # Handle both dict ({"name": ..., "args": ...}) and plain string formats
+        if isinstance(method, dict):
+            name = method.get("name", "")
+            has_args = bool(method.get("args"))
         else:
-            lines.append(f'  .{method} "value"')
+            name = str(method)
+            has_args = name not in _NO_ARG_METHODS
+
+        if not name:
+            continue
+
+        if name in _NO_ARG_METHODS or not has_args:
+            lines.append(f"  .{name}")
+        else:
+            lines.append(f'  .{name} "value"')
     if len(methods) > 5:
         lines.append(f"  ' ... and {len(methods) - 5} more methods")
     lines.append("End With")

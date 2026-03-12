@@ -671,48 +671,23 @@ def _build_export_result_vba(
             "  sTouchstone.Write",
             "End Sub",
         ]
-    elif fmt == "csv":
+    elif fmt in ("csv", "txt"):
+        # Use CST's built-in ASCIIExport object — avoids raw file I/O
+        # that would be blocked by the VBA security validator.
+        separator = "," if fmt == "csv" else " "
+        step_width = "0"  # 0 = export all data points (no interpolation)
         lines = [
             "Sub Main()",
             f'  SelectTreeItem "{result_path}"',
             "",
-            "  ' Export result data as ASCII/CSV",
-            "  Dim res As Object",
-            '  Set res = Result1D("")',
-            "",
-            "  Dim nPoints As Long",
-            "  nPoints = res.GetN",
-            "",
-            f'  Open "{output_file}" For Output As #1',
-            '  Print #1, "Frequency,Value"',
-            "",
-            "  Dim i As Long",
-            "  For i = 0 To nPoints - 1",
-            "    Print #1, res.GetX(i) & \",\" & res.GetY(i)",
-            "  Next i",
-            "  Close #1",
-            "End Sub",
-        ]
-    else:
-        # txt format
-        lines = [
-            "Sub Main()",
-            f'  SelectTreeItem "{result_path}"',
-            "",
-            "  ' Export result data as space-separated text",
-            "  Dim res As Object",
-            '  Set res = Result1D("")',
-            "",
-            "  Dim nPoints As Long",
-            "  nPoints = res.GetN",
-            "",
-            f'  Open "{output_file}" For Output As #1',
-            "",
-            "  Dim i As Long",
-            "  For i = 0 To nPoints - 1",
-            '    Print #1, res.GetX(i) & " " & res.GetY(i)',
-            "  Next i",
-            "  Close #1",
+            f"  ' Export result data via ASCIIExport ({fmt.upper()})",
+            "  With ASCIIExport",
+            "    .Reset",
+            f'    .FileName "{output_file}"',
+            f'    .SetSeparator "{separator}"',
+            f'    .StepWidth "{step_width}"',
+            "    .Execute",
+            "  End With",
             "End Sub",
         ]
 
@@ -837,6 +812,17 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
 
     Returns a list of TextContent with JSON-encoded results.
     """
+    try:
+        return await _handle_dispatch(name, arguments, client)
+    except Exception as e:
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
+
+
+async def _handle_dispatch(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:
+    """Dispatch a result tool call (inner implementation)."""
 
     # ------------------------------------------------------------------
     # cst_get_s_parameters

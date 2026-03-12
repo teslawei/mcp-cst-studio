@@ -142,23 +142,29 @@ async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a mesh tool call."""
-    if name == "cst_set_mesh_type":
-        return _set_mesh_type(arguments, client)
-    elif name == "cst_set_mesh_density":
-        return _set_mesh_density(arguments, client)
-    elif name == "cst_add_mesh_refinement":
-        return _add_mesh_refinement(arguments, client)
-    elif name == "cst_set_adaptive_mesh":
-        return _set_adaptive_mesh(arguments, client)
-    elif name == "cst_get_mesh_info":
-        return _get_mesh_info(arguments, client)
+    try:
+        if name == "cst_set_mesh_type":
+            return _set_mesh_type(arguments, client)
+        elif name == "cst_set_mesh_density":
+            return _set_mesh_density(arguments, client)
+        elif name == "cst_add_mesh_refinement":
+            return _add_mesh_refinement(arguments, client)
+        elif name == "cst_set_adaptive_mesh":
+            return _set_adaptive_mesh(arguments, client)
+        elif name == "cst_get_mesh_info":
+            return _get_mesh_info(arguments, client)
 
-    return [
-        TextContent(
+        return [
+            TextContent(
+                type="text",
+                text=json.dumps({"error": f"Unknown mesh tool: {name}"}),
+            )
+        ]
+    except Exception as e:
+        return [TextContent(
             type="text",
-            text=json.dumps({"error": f"Unknown mesh tool: {name}"}),
-        )
-    ]
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 def _set_mesh_type(arguments: dict, client: CSTClient) -> list[TextContent]:

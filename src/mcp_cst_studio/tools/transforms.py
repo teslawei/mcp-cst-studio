@@ -304,21 +304,27 @@ async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a transform tool call."""
-    builder = _BUILDERS.get(name)
-    if builder is None:
-        return [
-            TextContent(
-                type="text",
-                text=json.dumps({"error": f"Unknown transform tool: {name}"}),
-            )
-        ]
+    try:
+        builder = _BUILDERS.get(name)
+        if builder is None:
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Unknown transform tool: {name}"}),
+                )
+            ]
 
-    script = builder(arguments)
-    result = client.execute_vba(script)
-    result["transform"] = name.replace("cst_transform_", "")
-    result["solid"] = arguments.get("solid", "")
+        script = builder(arguments)
+        result = client.execute_vba(script)
+        result["transform"] = name.replace("cst_transform_", "")
+        result["solid"] = arguments.get("solid", "")
 
-    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+    except Exception as e:
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 # ---------------------------------------------------------------------------

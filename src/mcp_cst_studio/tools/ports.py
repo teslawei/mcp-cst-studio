@@ -290,27 +290,33 @@ async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a port/excitation tool call."""
-    if name == "cst_add_waveguide_port":
-        return await _handle_waveguide_port(arguments, client)
-    if name == "cst_add_discrete_port":
-        return await _handle_discrete_port(arguments, client)
-    if name == "cst_add_lumped_element":
-        return await _handle_lumped_element(arguments, client)
-    if name == "cst_add_plane_wave":
-        return await _handle_plane_wave(arguments, client)
-    if name == "cst_add_floquet_port":
-        return await _handle_floquet_port(arguments, client)
-    if name == "cst_list_ports":
-        return await _handle_list_ports(arguments, client)
-    if name == "cst_delete_port":
-        return await _handle_delete_port(arguments, client)
+    try:
+        if name == "cst_add_waveguide_port":
+            return await _handle_waveguide_port(arguments, client)
+        if name == "cst_add_discrete_port":
+            return await _handle_discrete_port(arguments, client)
+        if name == "cst_add_lumped_element":
+            return await _handle_lumped_element(arguments, client)
+        if name == "cst_add_plane_wave":
+            return await _handle_plane_wave(arguments, client)
+        if name == "cst_add_floquet_port":
+            return await _handle_floquet_port(arguments, client)
+        if name == "cst_list_ports":
+            return await _handle_list_ports(arguments, client)
+        if name == "cst_delete_port":
+            return await _handle_delete_port(arguments, client)
 
-    return [
-        TextContent(
+        return [
+            TextContent(
+                type="text",
+                text=json.dumps({"error": f"Unknown port tool: {name}"}),
+            )
+        ]
+    except Exception as e:
+        return [TextContent(
             type="text",
-            text=json.dumps({"error": f"Unknown port tool: {name}"}),
-        )
-    ]
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 async def _handle_waveguide_port(

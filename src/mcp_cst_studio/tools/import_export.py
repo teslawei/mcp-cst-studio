@@ -361,11 +361,11 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
     Generates VBA via VBABuilder, executes through the CSTClient, and
     returns the result wrapped in TextContent.
     """
-    builder_fn = _HANDLERS.get(name)
-    if builder_fn is None:
-        return _text({"status": "error", "message": f"Unknown import/export tool: {name}"})
-
     try:
+        builder_fn = _HANDLERS.get(name)
+        if builder_fn is None:
+            return _text({"status": "error", "message": f"Unknown import/export tool: {name}"})
+
         vba_code = builder_fn(arguments)
         result = client.execute_vba(vba_code)
 
@@ -392,7 +392,10 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
 
         return _text(result)
     except Exception as e:
-        return _text({"status": "error", "message": str(e)})
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 # ---------------------------------------------------------------------------

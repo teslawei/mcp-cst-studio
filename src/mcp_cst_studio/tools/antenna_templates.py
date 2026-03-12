@@ -421,7 +421,6 @@ def _build_units_block() -> VBABuilder:
     """Standard CST units: mm, GHz, ns, K."""
     return (
         VBABuilder("Units")
-        .call("Reset")
         .set("Geometry", "mm")
         .set("Frequency", "ghz")
         .set("Time", "ns")
@@ -486,7 +485,7 @@ def _build_substrate_material(name: str, eps_r: float, tan_d: float) -> VBABuild
         .set_number("Epsilon", eps_r)
         .set_number("TanD", tan_d)
         .set_number("Mu", 1)
-        .set("Colour", "0.94", )
+        .set_triple("Colour", 0.94, 0.82, 0.64)
         .set_number("Transparency", 0.5)
         .call("Create")
     )
@@ -503,7 +502,7 @@ def _build_substrate_material_block(name: str, eps_r: float, tan_d: float) -> st
     vba.set_number("Mu", 1)
     vba.set_number("TanDM", 0)
     vba.set_number("Sigma", 0)
-    vba.set("Colour", "0.94")
+    vba.set_triple("Colour", 0.94, 0.82, 0.64)
     vba.set_number("Transparency", 0.5)
     vba.call("Create")
     return vba.build()

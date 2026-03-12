@@ -167,15 +167,15 @@
         {"name": "Type", "args": "type: String", "description": "Material type: \"Normal\", \"Lossy metal\", \"Anisotropic\", \"PEC\", \"Vacuum\""},
         {"name": "Epsilon", "args": "value: Double", "description": "Set relative permittivity (epsilon_r)"},
         {"name": "Mu", "args": "value: Double", "description": "Set relative permeability (mu_r)"},
-        {"name": "TanDe", "args": "value: Double", "description": "Set electric loss tangent"},
-        {"name": "TanDm", "args": "value: Double", "description": "Set magnetic loss tangent"},
+        {"name": "TanD", "args": "value: Double", "description": "Set electric loss tangent"},
+        {"name": "TanDM", "args": "value: Double", "description": "Set magnetic loss tangent"},
         {"name": "Sigma", "args": "value: Double", "description": "Set electric conductivity (S/m)"},
         {"name": "Colour", "args": "r: Double, g: Double, b: Double", "description": "Set RGB color (0-1 each)"},
         {"name": "Transparency", "args": "value: Double", "description": "Set transparency (0=opaque, 1=transparent)"},
         {"name": "Create", "description": "Create the material"},
         {"name": "Delete", "args": "name: String", "description": "Delete a material"}
       ],
-      "example": "With Material\n  .Reset\n  .Name \"MySubstrate\"\n  .Type \"Normal\"\n  .Epsilon \"4.4\"\n  .Mu \"1\"\n  .TanDe \"0.02\"\n  .Colour \"0.2\", \"0.5\", \"0.2\"\n  .Transparency \"0.5\"\n  .Create\nEnd With"
+      "example": "With Material\n  .Reset\n  .Name \"MySubstrate\"\n  .Type \"Normal\"\n  .Epsilon \"4.4\"\n  .Mu \"1\"\n  .TanD \"0.02\"\n  .Colour \"0.2\", \"0.5\", \"0.2\"\n  .Transparency \"0.5\"\n  .Create\nEnd With"
     },
     "Port": {
       "category": "excitation",
@@ -288,7 +288,7 @@
         {"name": "Type", "args": "type: String", "description": "Background type: \"Normal\", \"PEC\""},
         {"name": "Epsilon", "args": "value: Double", "description": "Relative permittivity of background"},
         {"name": "Mu", "args": "value: Double", "description": "Relative permeability of background"},
-        {"name": "TanDe", "args": "value: Double", "description": "Electric loss tangent"},
+        {"name": "TanD", "args": "value: Double", "description": "Electric loss tangent"},
         {"name": "XminSpace", "args": "value: Double", "description": "Additional space at Xmin"},
         {"name": "XmaxSpace", "args": "value: Double", "description": "Additional space at Xmax"},
         {"name": "YminSpace", "args": "value: Double", "description": "Additional space at Ymin"},

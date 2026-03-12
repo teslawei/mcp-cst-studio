@@ -17,6 +17,10 @@ def _escape_vba_string(value: str) -> str:
 
 def _format_number(value: float) -> str:
     """Format a number for VBA, avoiding scientific notation for small values."""
+    import math
+
+    if math.isnan(value) or math.isinf(value):
+        raise ValueError(f"Cannot format {value} for VBA: must be a finite number")
     if value == int(value) and abs(value) < 1e15:
         return str(int(value))
     return f"{value:.10g}"
