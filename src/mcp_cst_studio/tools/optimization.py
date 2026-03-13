@@ -1,9 +1,12 @@
 """Antenna optimization tools for CST Studio Suite.
 
-Provides 2 MCP tools for evaluating antenna performance against band/VSWR
-goals and running automated Nelder-Mead refinement loops.
+Provides 3 MCP tools for evaluating antenna performance against band/VSWR
+goals, analyzing impedance for design guidance, and running automated
+Nelder-Mead refinement loops.
 
 - ``cst_evaluate_antenna``: Read-only evaluation of S11 against VSWR targets
+- ``cst_analyze_impedance``: Impedance analysis with Smith chart metrics and
+  design recommendations for improving matching toward a target impedance
 - ``cst_refine_antenna``: Iterative parameter optimization via Nelder-Mead
 """
 
@@ -74,6 +77,70 @@ TOOLS: list[Tool] = [
                     "type": "integer",
                     "description": "Port number for S-parameter (default: 1).",
                     "default": 1,
+                },
+            },
+            "required": ["bands"],
+        },
+    ),
+    Tool(
+        name="cst_analyze_impedance",
+        description=(
+            "Analyze antenna input impedance (Z = R + jX) across frequency bands "
+            "and provide Smith chart metrics with design recommendations. "
+            "Exports Z-parameter data from a completed simulation, computes "
+            "reflection coefficient, normalized impedance, VSWR, and classifies "
+            "the mismatch type per band (resistive high/low, inductive/capacitive). "
+            "Returns actionable design guidance for moving impedance toward the "
+            "target (typically 50 ohms). Read-only — does not modify the model."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "bands": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Band label (e.g. '2.4 GHz WiFi').",
+                            },
+                            "f_low_ghz": {
+                                "type": "number",
+                                "description": "Lower band edge in GHz.",
+                            },
+                            "f_high_ghz": {
+                                "type": "number",
+                                "description": "Upper band edge in GHz.",
+                            },
+                            "vswr_target": {
+                                "type": "number",
+                                "description": "Maximum acceptable VSWR (default: 2.5).",
+                                "default": 2.5,
+                            },
+                        },
+                        "required": ["name", "f_low_ghz", "f_high_ghz"],
+                    },
+                    "minItems": 1,
+                    "description": "Frequency bands to analyze impedance for.",
+                },
+                "z0": {
+                    "type": "number",
+                    "description": "Reference impedance in ohms (default: 50).",
+                    "default": 50,
+                },
+                "port": {
+                    "type": "integer",
+                    "description": "Port number (default: 1).",
+                    "default": 1,
+                },
+                "sample_frequencies_ghz": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": (
+                        "Specific frequencies (GHz) to report detailed impedance. "
+                        "If omitted, band edges and center are used."
+                    ),
                 },
             },
             "required": ["bands"],
@@ -331,6 +398,345 @@ def _compute_cost(
         elif br["status"] == "FAIL":
             cost += br["worst_vswr"] - br["target_vswr"]
     return cost, band_results
+
+
+# ---------------------------------------------------------------------------
+# Impedance analysis and Smith chart metrics
+# ---------------------------------------------------------------------------
+
+
+def _parse_z_data(filepath: str) -> tuple[list[float], list[float]]:
+    """Parse CST ASCIIExport space-separated Z-parameter data.
+
+    CST exports real and imaginary parts as separate tree items, each
+    producing a 2-column file: ``frequency  value``.
+
+    Returns (frequencies_ghz, values).
+    """
+    freqs: list[float] = []
+    values: list[float] = []
+
+    with open(filepath, "r") as f:
+        lines = f.readlines()
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("-") or stripped.startswith("F"):
+            continue
+        parts = stripped.split()
+        if len(parts) >= 2:
+            try:
+                freqs.append(float(parts[0]))
+                values.append(float(parts[1]))
+            except ValueError:
+                continue
+
+    if not freqs:
+        raise ValueError(f"No Z-parameter data found in {filepath}")
+
+    return freqs, values
+
+
+def z_to_gamma(r: float, x: float, z0: float = 50.0) -> tuple[float, float]:
+    """Convert impedance Z = R + jX to reflection coefficient Γ.
+
+    Γ = (Z - Z0) / (Z + Z0)
+
+    Returns (gamma_real, gamma_imag).
+    """
+    zr = r - z0
+    zi = x
+    zd_r = r + z0
+    zd_i = x
+    denom = zd_r * zd_r + zd_i * zd_i
+    if denom == 0:
+        return 1.0, 0.0
+    g_real = (zr * zd_r + zi * zd_i) / denom
+    g_imag = (zi * zd_r - zr * zd_i) / denom
+    return g_real, g_imag
+
+
+def gamma_mag(g_real: float, g_imag: float) -> float:
+    """Magnitude of reflection coefficient |Γ|."""
+    return math.sqrt(g_real * g_real + g_imag * g_imag)
+
+
+def gamma_to_vswr(g_mag: float) -> float:
+    """Convert |Γ| to VSWR."""
+    if g_mag >= 1.0:
+        return float("inf")
+    return (1.0 + g_mag) / (1.0 - g_mag)
+
+
+def gamma_to_return_loss(g_mag: float) -> float:
+    """Convert |Γ| to return loss in dB (always positive, higher = better)."""
+    if g_mag <= 0:
+        return float("inf")
+    return -20.0 * math.log10(g_mag)
+
+
+def _classify_mismatch(r: float, x: float, z0: float = 50.0) -> dict:
+    """Classify impedance mismatch relative to Z0.
+
+    Returns a dict with mismatch type classification and metrics.
+    """
+    r_ratio = r / z0 if z0 > 0 else float("inf")
+
+    # Resistive classification
+    if r_ratio > 1.5:
+        r_class = "high"
+        r_desc = f"R={r:.1f}Ω is {r_ratio:.1f}× target ({z0:.0f}Ω) — too high"
+    elif r_ratio < 0.67:
+        r_class = "low"
+        r_desc = f"R={r:.1f}Ω is {r_ratio:.1f}× target ({z0:.0f}Ω) — too low"
+    else:
+        r_class = "ok"
+        r_desc = f"R={r:.1f}Ω is close to target ({z0:.0f}Ω)"
+
+    # Reactive classification
+    if abs(x) < 10:
+        x_class = "ok"
+        x_desc = f"X={x:+.1f}Ω — near resonance"
+    elif x > 0:
+        x_class = "inductive"
+        x_desc = f"X={x:+.1f}Ω — inductive (antenna electrically long)"
+    else:
+        x_class = "capacitive"
+        x_desc = f"X={x:+.1f}Ω — capacitive (antenna electrically short)"
+
+    # Overall severity
+    g_r, g_i = z_to_gamma(r, x, z0)
+    g_m = gamma_mag(g_r, g_i)
+    vswr = gamma_to_vswr(g_m)
+    rl = gamma_to_return_loss(g_m)
+
+    return {
+        "resistance_ohm": round(r, 2),
+        "reactance_ohm": round(x, 2),
+        "impedance_mag_ohm": round(math.sqrt(r * r + x * x), 2),
+        "r_ratio": round(r_ratio, 3),
+        "r_class": r_class,
+        "r_description": r_desc,
+        "x_class": x_class,
+        "x_description": x_desc,
+        "gamma_mag": round(g_m, 4),
+        "vswr": round(vswr, 3),
+        "return_loss_db": round(rl, 2),
+    }
+
+
+def _generate_recommendations(
+    band_name: str,
+    avg_r: float,
+    avg_x: float,
+    z0: float,
+    worst_vswr: float,
+    target_vswr: float,
+) -> list[str]:
+    """Generate design recommendations based on impedance analysis.
+
+    Returns a list of actionable recommendation strings specific to
+    antenna design (IFA, PIFA, patch, monopole, etc.).
+    """
+    recs: list[str] = []
+    r_ratio = avg_r / z0 if z0 > 0 else 1.0
+
+    if worst_vswr <= target_vswr:
+        recs.append(f"✓ {band_name} meets VSWR target ({worst_vswr:.2f} ≤ {target_vswr:.1f})")
+        return recs
+
+    gap = worst_vswr - target_vswr
+    recs.append(
+        f"✗ {band_name} VSWR={worst_vswr:.2f} exceeds target {target_vswr:.1f} "
+        f"(gap: {gap:.2f})"
+    )
+
+    # Resistive mismatch recommendations
+    if r_ratio > 2.0:
+        recs.append(
+            f"  R is {r_ratio:.1f}× Z0 — impedance far too high. "
+            "For PIFA/IFA: move feed closer to shorting wall, widen shorting "
+            "wall/pin, or increase ground plane coupling (larger ground slot, "
+            "closer slot to patch edge)."
+        )
+    elif r_ratio > 1.5:
+        recs.append(
+            f"  R is {r_ratio:.1f}× Z0 — moderately high. "
+            "For PIFA: adjust feed position toward short, slightly widen "
+            "shorting wall, or increase ground slot width for better coupling."
+        )
+    elif r_ratio < 0.5:
+        recs.append(
+            f"  R is {r_ratio:.1f}× Z0 — impedance too low. "
+            "For PIFA/IFA: move feed away from shorting wall, narrow "
+            "shorting wall, or reduce ground plane coupling."
+        )
+    elif r_ratio < 0.67:
+        recs.append(
+            f"  R is {r_ratio:.1f}× Z0 — slightly low. "
+            "For PIFA: shift feed slightly away from short, or fine-tune "
+            "ground slot dimensions."
+        )
+
+    # Reactive mismatch recommendations
+    if avg_x > 50:
+        recs.append(
+            f"  X={avg_x:+.0f}Ω — strongly inductive. The radiating element "
+            "is electrically too long at this frequency. Shorten the resonant "
+            "path, add a capacitive slot/gap in the patch, or add series "
+            "capacitance. For ground slots: shorten slot length or move slot "
+            "to shift resonance upward."
+        )
+    elif avg_x > 20:
+        recs.append(
+            f"  X={avg_x:+.0f}Ω — moderately inductive. Slight shortening of "
+            "resonant element or slot/stub tuning can compensate. Consider "
+            "U-slot inset adjustment or feed position fine-tuning."
+        )
+    elif avg_x < -50:
+        recs.append(
+            f"  X={avg_x:+.0f}Ω — strongly capacitive. The radiating element "
+            "is electrically too short. Lengthen the resonant path, add "
+            "inductive loading (meander, stub), or increase patch height."
+        )
+    elif avg_x < -20:
+        recs.append(
+            f"  X={avg_x:+.0f}Ω — moderately capacitive. Lengthen the resonant "
+            "element slightly, or add a small inductive load/stub."
+        )
+
+    # Bandwidth recommendations
+    if worst_vswr > 5.0:
+        recs.append(
+            "  Severe mismatch suggests no strong resonance in this band. "
+            "Consider adding a dedicated resonant element (parasitic strip, "
+            "additional slot, or coupled resonator) targeting this frequency range."
+        )
+    elif worst_vswr > 3.0 and abs(avg_x) > 30:
+        recs.append(
+            "  Combined high R and large reactance indicate the mode is weakly "
+            "excited. Ground plane slots can enhance coupling to higher-order "
+            "modes. Position/size slots to match the half-wavelength at the "
+            "target frequency."
+        )
+
+    return recs
+
+
+def _analyze_impedance_band(
+    freqs: list[float],
+    z_real: list[float],
+    z_imag: list[float],
+    band: dict,
+    z0: float = 50.0,
+    sample_freqs: list[float] | None = None,
+) -> dict:
+    """Analyze impedance within a frequency band.
+
+    Returns per-band metrics: worst/best VSWR, average impedance,
+    mismatch classification, and frequency-by-frequency detail.
+    """
+    f_low = band["f_low_ghz"]
+    f_high = band["f_high_ghz"]
+    target_vswr = band.get("vswr_target", 2.5)
+
+    # Filter points within band
+    band_data = []
+    for f, r, x in zip(freqs, z_real, z_imag):
+        if f_low <= f <= f_high:
+            g_r, g_i = z_to_gamma(r, x, z0)
+            g_m = gamma_mag(g_r, g_i)
+            band_data.append({
+                "freq_ghz": f,
+                "r_ohm": r,
+                "x_ohm": x,
+                "gamma_mag": g_m,
+                "vswr": gamma_to_vswr(g_m),
+                "return_loss_db": gamma_to_return_loss(g_m),
+            })
+
+    if not band_data:
+        return {
+            "name": band["name"],
+            "status": "NO_DATA",
+            "message": f"No impedance data in {f_low}-{f_high} GHz",
+        }
+
+    # Aggregate metrics
+    worst_vswr_pt = max(band_data, key=lambda d: d["vswr"])
+    best_vswr_pt = min(band_data, key=lambda d: d["vswr"])
+    avg_r = sum(d["r_ohm"] for d in band_data) / len(band_data)
+    avg_x = sum(d["x_ohm"] for d in band_data) / len(band_data)
+
+    passed = worst_vswr_pt["vswr"] <= target_vswr
+
+    # Classification at worst frequency
+    worst_class = _classify_mismatch(
+        worst_vswr_pt["r_ohm"], worst_vswr_pt["x_ohm"], z0
+    )
+
+    # Recommendations
+    recommendations = _generate_recommendations(
+        band["name"], avg_r, avg_x, z0,
+        worst_vswr_pt["vswr"], target_vswr,
+    )
+
+    # Sample points for detailed report
+    detail_points = []
+    if sample_freqs:
+        targets = sample_freqs
+    else:
+        # Default: band edges + center + worst + best
+        targets = sorted(set([
+            f_low,
+            (f_low + f_high) / 2,
+            f_high,
+            worst_vswr_pt["freq_ghz"],
+            best_vswr_pt["freq_ghz"],
+        ]))
+
+    for f_target in targets:
+        if f_low <= f_target <= f_high:
+            closest = min(band_data, key=lambda d: abs(d["freq_ghz"] - f_target))
+            detail_points.append({
+                "freq_ghz": round(closest["freq_ghz"], 4),
+                "r_ohm": round(closest["r_ohm"], 2),
+                "x_ohm": round(closest["x_ohm"], 2),
+                "z_mag_ohm": round(
+                    math.sqrt(closest["r_ohm"] ** 2 + closest["x_ohm"] ** 2), 2
+                ),
+                "vswr": round(closest["vswr"], 3),
+                "return_loss_db": round(closest["return_loss_db"], 2),
+                "mismatch": _classify_mismatch(
+                    closest["r_ohm"], closest["x_ohm"], z0
+                ),
+            })
+
+    return {
+        "name": band["name"],
+        "status": "PASS" if passed else "FAIL",
+        "target_vswr": target_vswr,
+        "worst_vswr": round(worst_vswr_pt["vswr"], 3),
+        "worst_freq_ghz": round(worst_vswr_pt["freq_ghz"], 4),
+        "worst_impedance": {
+            "r_ohm": round(worst_vswr_pt["r_ohm"], 2),
+            "x_ohm": round(worst_vswr_pt["x_ohm"], 2),
+        },
+        "best_vswr": round(best_vswr_pt["vswr"], 3),
+        "best_freq_ghz": round(best_vswr_pt["freq_ghz"], 4),
+        "best_impedance": {
+            "r_ohm": round(best_vswr_pt["r_ohm"], 2),
+            "x_ohm": round(best_vswr_pt["x_ohm"], 2),
+        },
+        "average_impedance": {
+            "r_ohm": round(avg_r, 2),
+            "x_ohm": round(avg_x, 2),
+        },
+        "worst_mismatch": worst_class,
+        "num_points": len(band_data),
+        "recommendations": recommendations,
+        "detail_points": detail_points,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -857,12 +1263,172 @@ async def _handle_refine(args: dict, client: CSTClient) -> dict:
     return await _optimization_loop(client, params_spec, bands, max_iterations, port)
 
 
+async def _handle_analyze_impedance(args: dict, client: CSTClient) -> dict:
+    """Handle cst_analyze_impedance.
+
+    Exports Z-parameter data (real + imaginary impedance vs frequency),
+    analyzes per-band impedance metrics, and generates design recommendations.
+    """
+    bands = args["bands"]
+    z0 = float(args.get("z0", 50))
+    port = int(args.get("port", 1))
+    sample_freqs = args.get("sample_frequencies_ghz")
+
+    if not client.connected or not client.has_project:
+        # Offline mode: return VBA for Z-parameter extraction
+        vba = _build_impedance_vba(port)
+        return {
+            "status": "offline",
+            "vba": vba,
+            "z0_ohm": z0,
+            "message": (
+                "Run this VBA in CST to export impedance data. The real part "
+                "is at '1D Results\\Z-Parameters\\Z{p},{p}' and imaginary at "
+                "'1D Results\\Z-Parameters\\Z{p},{p}_imag'. After export, "
+                "analyze R+jX at each frequency: R should be near {z0}Ω and "
+                "X should be near 0Ω for a good match."
+            ).format(p=port, z0=z0),
+            "analysis_guidance": {
+                "r_too_high": (
+                    "R >> Z0: Feed is near voltage maximum. Move feed closer "
+                    "to shorting wall (PIFA) or current maximum."
+                ),
+                "r_too_low": (
+                    "R << Z0: Feed is near current maximum. Move feed further "
+                    "from shorting wall."
+                ),
+                "x_inductive": (
+                    "X > 0 (inductive): Element electrically long. Shorten "
+                    "resonant path or add capacitive loading."
+                ),
+                "x_capacitive": (
+                    "X < 0 (capacitive): Element electrically short. Lengthen "
+                    "resonant path or add inductive loading."
+                ),
+            },
+            "bands": [
+                {
+                    "name": b["name"],
+                    "f_low_ghz": b["f_low_ghz"],
+                    "f_high_ghz": b["f_high_ghz"],
+                    "vswr_target": b.get("vswr_target", 2.5),
+                }
+                for b in bands
+            ],
+        }
+
+    # Connected mode: export both real and imaginary Z-parameter data
+    work_dir = client._config.work_dir or tempfile.gettempdir()
+    z_real_file = os.path.join(work_dir, "_z_real_temp.csv").replace("\\", "/")
+    z_imag_file = os.path.join(work_dir, "_z_imag_temp.csv").replace("\\", "/")
+
+    # Export real part
+    tree_real = f"1D Results\\Z-Parameters\\Z{port},{port}"
+    result = client.export_result(tree_real, z_real_file)
+    if result.get("status") == "error":
+        return {
+            "status": "error",
+            "message": f"Export Z real failed: {result.get('message')}. "
+            "Ensure a simulation has been completed with S-parameter results.",
+        }
+
+    # Export imaginary part
+    tree_imag = f"1D Results\\Z-Parameters\\Z{port},{port}_imag"
+    result = client.export_result(tree_imag, z_imag_file)
+    if result.get("status") == "error":
+        return {
+            "status": "error",
+            "message": f"Export Z imag failed: {result.get('message')}",
+        }
+
+    # Parse both
+    try:
+        freqs_r, z_real = _parse_z_data(z_real_file)
+        freqs_i, z_imag = _parse_z_data(z_imag_file)
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to parse Z data: {e}"}
+    finally:
+        # Clean up temp files
+        for f in (z_real_file, z_imag_file):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+
+    # Validate alignment
+    if len(freqs_r) != len(freqs_i):
+        return {
+            "status": "error",
+            "message": (
+                f"Z real ({len(freqs_r)} pts) and imag ({len(freqs_i)} pts) "
+                "have different lengths."
+            ),
+        }
+
+    # Analyze each band
+    band_results = []
+    all_recommendations = []
+    for band in bands:
+        br = _analyze_impedance_band(
+            freqs_r, z_real, z_imag, band, z0, sample_freqs
+        )
+        band_results.append(br)
+        if "recommendations" in br:
+            all_recommendations.extend(br["recommendations"])
+
+    overall = "PASS" if all(
+        b.get("status") == "PASS" for b in band_results
+    ) else "FAIL"
+
+    return {
+        "status": "analyzed",
+        "overall": overall,
+        "z0_ohm": z0,
+        "port": port,
+        "frequency_range_ghz": [round(freqs_r[0], 4), round(freqs_r[-1], 4)],
+        "num_points": len(freqs_r),
+        "bands": band_results,
+        "summary_recommendations": all_recommendations,
+    }
+
+
+def _build_impedance_vba(port: int) -> str:
+    """Build VBA to export impedance data for offline analysis."""
+    script = VBAScript()
+    script.add_comment(f"Export Z{port},{port} impedance data for analysis")
+    script.add_comment("Export both real and imaginary parts separately")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "1D Results\\Z-Parameters\\Z{port},{port}"',
+        "  With ASCIIExport",
+        "    .Reset",
+        f'    .FileName "C:/cst_projects/z{port}{port}_real.csv"',
+        '    .SetfileType "csv"',
+        "    .Execute",
+        "  End With",
+        "",
+        f'  SelectTreeItem "1D Results\\Z-Parameters\\Z{port},{port}_imag"',
+        "  With ASCIIExport",
+        "    .Reset",
+        f'    .FileName "C:/cst_projects/z{port}{port}_imag.csv"',
+        '    .SetfileType "csv"',
+        "    .Execute",
+        "  End With",
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
 _HANDLERS: dict[str, callable] = {
     "cst_evaluate_antenna": _handle_evaluate,
+    "cst_analyze_impedance": _handle_analyze_impedance,
     "cst_refine_antenna": _handle_refine,
 }
 
