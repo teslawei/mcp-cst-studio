@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
+import time
 from typing import Any
 
 from mcp_cst_studio.config import CSTConfig
+from mcp_cst_studio.dialog_handler import DialogWatcher, dismiss_cst_dialogs, find_cst_dialogs
 
 logger = logging.getLogger(__name__)
 
@@ -216,13 +219,46 @@ class CSTClient:
             "message": "VBA script generated (silent). Execute in CST Studio Suite.",
         }
 
+    def is_solver_running(self) -> bool:
+        """Check if a solver is currently running."""
+        if self.connected and self._project is not None:
+            try:
+                return bool(self._project.model3d.is_solver_running())
+            except Exception:
+                return False
+        return False
+
+    def wait_for_solver(self, timeout: float = 600, poll_interval: float = 2.0) -> dict:
+        """Wait for a running solver to finish.
+
+        Returns immediately if no solver is running.
+        """
+        if not self.connected or self._project is None:
+            return {"status": "offline"}
+
+        deadline = time.monotonic() + timeout
+        while self.is_solver_running():
+            if time.monotonic() > deadline:
+                return {"status": "error", "message": f"Solver still running after {timeout}s"}
+            time.sleep(poll_interval)
+
+        return {"status": "ok"}
+
     def run_solver(self) -> dict:
         """Run the solver via Python API (no VBA, no history entry).
 
         Uses ``model3d.run_solver()`` which blocks until complete.
+        If a solver is already running, waits for it to finish first.
         """
         if self.connected and self._project is not None:
             try:
+                # Wait for any in-progress solver before starting
+                if self.is_solver_running():
+                    logger.info("Solver already running — waiting for it to finish")
+                    wait_result = self.wait_for_solver()
+                    if wait_result.get("status") == "error":
+                        return wait_result
+
                 result = self._project.model3d.run_solver()
                 return {"status": "executed", "result": str(result) if result else "ok"}
             except Exception as e:
@@ -272,6 +308,193 @@ class CSTClient:
             "message": "Result retrieval requires connected mode with a completed simulation.",
         }
 
+    def delete_results(self) -> dict:
+        """Delete solver results via ``model3d.DeleteResults()``.
+
+        This is critical before rebuilding with new parameters — without
+        deleting results first, the solver may return cached/stale data
+        even after a ``Rebuild()``.
+
+        Also dismisses any CST dialogs that may appear.
+        """
+        if not self.connected or self._project is None:
+            return {"status": "offline", "message": "Delete results requires connected mode."}
+
+        try:
+            self._project.model3d.DeleteResults()
+        except Exception as e:
+            logger.warning("DeleteResults error (non-fatal): %s", e)
+
+        # Dismiss any dialogs that may have appeared
+        dismissed = self.dismiss_dialogs()
+        return {"status": "ok", "method": "python_api", **dismissed}
+
+    def set_params_rebuild_solve(
+        self,
+        params: dict[str, float],
+        export_path: str | None = None,
+        port: int = 1,
+    ) -> dict:
+        """Set parameters, rebuild geometry, solve, and optionally export S11.
+
+        Uses the Python API directly (no VBA, no history entries).  The
+        correct sequence to get fresh results after a parameter change is:
+
+        1. ``StoreParameter`` — update parameter table
+        2. ``DeleteResults`` — clear cached solver results
+        3. ``Rebuild`` — rebuild geometry from history with new values
+        4. ``run_solver`` — run a fresh simulation
+        5. (optional) ``ASCIIExport`` — export S-parameter data
+
+        Without ``DeleteResults`` before ``Rebuild``, the solver returns
+        stale cached data even though the parameter values have changed.
+
+        Returns dict with status and optional export path.
+        """
+        if not self.connected or self._project is None:
+            return {"status": "offline", "message": "Requires connected mode."}
+
+        m3d = self._project.model3d
+
+        try:
+            # 1. Store parameters
+            for name, value in params.items():
+                m3d.StoreParameter(name, str(value))
+
+            # 2. Delete old results (critical!)
+            m3d.DeleteResults()
+
+            # 3. Dismiss any dialogs
+            self.dismiss_dialogs()
+
+            # 4. Rebuild geometry
+            m3d.Rebuild()
+
+            # 5. Dismiss any post-rebuild dialogs
+            self.dismiss_dialogs()
+
+            # 6. Run solver
+            if self.is_solver_running():
+                wait_result = self.wait_for_solver()
+                if wait_result.get("status") == "error":
+                    return wait_result
+            m3d.run_solver()
+
+            # 7. Export if requested
+            if export_path:
+                import os
+                if os.path.exists(export_path):
+                    os.remove(export_path)
+                tree_path = f"1D Results\\S-Parameters\\S{port},{port}"
+                m3d.SelectTreeItem(tree_path)
+                ae = m3d.ASCIIExport
+                ae.Reset()
+                ae.FileName(export_path.replace("\\", "/"))
+                ae.SetFileType("csv")
+                ae.Execute()
+
+            return {"status": "ok", "params": params, "export_path": export_path}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def read_project_messages(self) -> dict:
+        """Read solver log and project status information.
+
+        Scans the project results directory for log files and returns
+        their contents along with current solver state.
+        """
+        info: dict[str, Any] = {"solver_running": False}
+
+        if not self.connected or self._project is None:
+            return {"status": "offline", "message": "Requires connected mode."}
+
+        info["solver_running"] = self.is_solver_running()
+        info["project_path"] = self._project_path
+
+        if not self._project_path:
+            return {"status": "ok", **info}
+
+        # CST stores results in a directory alongside the .cst file
+        # e.g. "Project.cst" -> "Project/Result/"
+        project_base = self._project_path.replace(".cst", "")
+        candidate_dirs = [
+            os.path.join(project_base, "Result"),
+            project_base,
+        ]
+
+        log_files: list[str] = []
+        for d in candidate_dirs:
+            if os.path.isdir(d):
+                try:
+                    for fname in os.listdir(d):
+                        lower = fname.lower()
+                        if "log" in lower or "solver" in lower or lower.endswith(".log"):
+                            log_files.append(os.path.join(d, fname))
+                except OSError:
+                    continue
+
+        if log_files:
+            info["log_files"] = log_files
+            try:
+                newest = max(log_files, key=os.path.getmtime)
+                with open(newest, "r", errors="replace") as f:
+                    content = f.read()
+                # Return last 5000 chars to keep response manageable
+                info["latest_log"] = content[-5000:] if len(content) > 5000 else content
+                info["latest_log_file"] = newest
+            except OSError:
+                pass
+
+        return {"status": "ok", **info}
+
+    # -- dialog management --
+
+    _dialog_watcher: DialogWatcher | None = None
+
+    def dismiss_dialogs(self) -> dict:
+        """Find and dismiss any visible CST dialog windows.
+
+        Returns details of each dialog that was dismissed (title, text,
+        action taken).  Uses Win32 API on Windows; no-op on other platforms.
+        """
+        dismissed = dismiss_cst_dialogs()
+        if dismissed:
+            return {"status": "dismissed", "count": len(dismissed), "dialogs": dismissed}
+        return {"status": "ok", "message": "No CST dialogs found."}
+
+    def read_dialogs(self) -> dict:
+        """Read (but don't dismiss) any visible CST dialog windows."""
+        dialogs = find_cst_dialogs()
+        # Strip hwnd for serialisation
+        for d in dialogs:
+            d.pop("hwnd", None)
+        if dialogs:
+            return {"status": "found", "count": len(dialogs), "dialogs": dialogs}
+        return {"status": "ok", "message": "No CST dialogs found."}
+
+    def start_dialog_watcher(self) -> dict:
+        """Start background thread that auto-dismisses CST dialogs."""
+        if CSTClient._dialog_watcher is not None and CSTClient._dialog_watcher.running:
+            return {"status": "already_running"}
+        CSTClient._dialog_watcher = DialogWatcher(poll_interval=0.5)
+        CSTClient._dialog_watcher.start()
+        return {"status": "started"}
+
+    def stop_dialog_watcher(self) -> dict:
+        """Stop the background dialog watcher and return its log."""
+        if CSTClient._dialog_watcher is None or not CSTClient._dialog_watcher.running:
+            return {"status": "not_running"}
+        log = CSTClient._dialog_watcher.get_log()
+        CSTClient._dialog_watcher.stop()
+        return {"status": "stopped", "dismissed_count": len(log), "log": log}
+
+    def get_dialog_log(self) -> dict:
+        """Get log of dialogs auto-dismissed by the watcher."""
+        if CSTClient._dialog_watcher is None:
+            return {"status": "not_running", "log": []}
+        log = CSTClient._dialog_watcher.get_log()
+        return {"status": "ok", "count": len(log), "log": log}
+
     def status(self) -> dict:
         """Get current client status."""
         return {
@@ -282,4 +505,8 @@ class CSTClient:
             "work_dir": self._config.work_dir,
             "project_open": self.has_project,
             "project_path": self._project_path,
+            "dialog_watcher": (
+                CSTClient._dialog_watcher is not None
+                and CSTClient._dialog_watcher.running
+            ),
         }

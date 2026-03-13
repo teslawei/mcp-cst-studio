@@ -21,6 +21,7 @@ from mcp_cst_studio.tools.optimization import (
     _parse_s11_data,
     _reflect,
     _run_solver_vba,
+    _set_params_and_solve_vba,
     _set_params_vba,
     _shrink,
     _solve_and_export_vba,
@@ -248,11 +249,39 @@ class TestComputeCost:
 class TestVBAGeneration:
     def test_set_params_vba(self):
         vba = _set_params_vba({"arm_length": 26.5, "branch_len": 14.0})
-        assert "Sub Main()" in vba
+        # Raw VBA for add_to_history — no Sub Main wrapper
+        assert "Sub Main()" not in vba
         assert 'StoreParameter "arm_length", "26.5"' in vba
         assert 'StoreParameter "branch_len", "14.0"' in vba
-        assert "RebuildOnParametricChange" in vba
-        assert "End Sub" in vba
+        # No rebuild commands — solver triggers rebuild automatically
+        assert "RebuildOnParametricChange" not in vba
+        assert "DeleteAllResults" not in vba
+
+    def test_set_params_vba_only_store_parameter(self):
+        """VBA should only contain StoreParameter lines."""
+        vba = _set_params_vba({"x": 1.0, "y": 2.0})
+        lines = [l for l in vba.split("\n") if l.strip()]
+        assert all("StoreParameter" in l for l in lines)
+
+    def test_set_params_and_solve_vba(self):
+        """Combined VBA stores params, solves, and exports."""
+        vba = _set_params_and_solve_vba(
+            {"arm_length": 20.0},
+            export_path="C:/out.csv",
+            port=1,
+        )
+        assert 'StoreParameter "arm_length", "20.0"' in vba
+        assert "Solver.Start" in vba
+        assert "ASCIIExport" in vba
+        assert "C:/out.csv" in vba
+        assert "S1,1" in vba
+
+    def test_set_params_and_solve_vba_no_export(self):
+        """Combined VBA without export."""
+        vba = _set_params_and_solve_vba({"x": 1.0})
+        assert 'StoreParameter "x", "1.0"' in vba
+        assert "Solver.Start" in vba
+        assert "ASCIIExport" not in vba
 
     def test_run_solver_vba(self):
         vba = _run_solver_vba()
@@ -311,13 +340,13 @@ class TestNelderMeadComponents:
                 assert bounds[i][0] <= v <= bounds[i][1]
 
     def test_initial_simplex_near_upper_bound(self):
-        """When x0 is near upper bound, delta should go downward."""
+        """When x0 is above midpoint, delta should go downward."""
         x0 = [14.5]
         bounds = [(5.0, 15.0)]
         simplex = _build_initial_simplex(x0, bounds)
         assert len(simplex) == 2
-        # Second vertex should be below x0 since upward delta would exceed bound
-        assert simplex[1][0] < x0[0] or simplex[1][0] <= bounds[0][1]
+        # x0=14.5 is above midpoint=10, so perturbation goes downward
+        assert simplex[1][0] < x0[0]
 
     def test_clamp_to_bounds(self):
         assert _clamp_to_bounds([1, 20, 50], [(5, 15), (10, 30), (20, 40)]) == [5, 20, 40]
@@ -515,3 +544,136 @@ class TestOfflineMode:
 import json
 
 from mcp_cst_studio.cst_client import CSTClient
+
+
+# ---------------------------------------------------------------------------
+# Diagnostics tools
+# ---------------------------------------------------------------------------
+
+
+class TestDiagnosticsOffline:
+    @pytest.fixture
+    def offline_client(self):
+        from mcp_cst_studio.config import CSTConfig
+        config = CSTConfig(connected=False)
+        return CSTClient(config=config)
+
+    def test_delete_results_offline(self, offline_client):
+        result = offline_client.delete_results()
+        assert result["status"] == "offline"
+
+    def test_set_params_rebuild_solve_offline(self, offline_client):
+        result = offline_client.set_params_rebuild_solve(
+            {"arm_length": 20.0}, export_path="C:/out.csv"
+        )
+        assert result["status"] == "offline"
+
+    def test_read_messages_offline(self, offline_client):
+        result = offline_client.read_project_messages()
+        assert result["status"] == "offline"
+
+    def test_dismiss_dialogs_offline(self, offline_client):
+        result = offline_client.dismiss_dialogs()
+        # "ok" = no dialogs found, "dismissed" = found and dismissed some
+        assert result["status"] in ("ok", "dismissed")
+
+    def test_read_dialogs_offline(self, offline_client):
+        result = offline_client.read_dialogs()
+        assert result["status"] in ("ok", "found")
+
+    def test_dialog_watcher_lifecycle(self, offline_client):
+        result = offline_client.start_dialog_watcher()
+        assert result["status"] in ("started", "already_running")
+        log = offline_client.get_dialog_log()
+        assert "log" in log
+        result = offline_client.stop_dialog_watcher()
+        assert result["status"] == "stopped"
+
+    def test_stop_watcher_when_not_running(self, offline_client):
+        # Stop watcher first if it's running from previous test
+        offline_client.stop_dialog_watcher()
+        result = offline_client.stop_dialog_watcher()
+        assert result["status"] == "not_running"
+
+    @pytest.mark.asyncio
+    async def test_delete_results_tool_offline(self, offline_client):
+        from mcp_cst_studio.tools.diagnostics import handle
+        result = await handle("cst_delete_results", {}, offline_client)
+        data = json.loads(result[0].text)
+        assert data["status"] == "offline"
+
+    @pytest.mark.asyncio
+    async def test_read_log_tool_offline(self, offline_client):
+        from mcp_cst_studio.tools.diagnostics import handle
+        result = await handle("cst_read_project_log", {}, offline_client)
+        data = json.loads(result[0].text)
+        assert data["status"] == "offline"
+
+    @pytest.mark.asyncio
+    async def test_dismiss_dialogs_tool(self, offline_client):
+        from mcp_cst_studio.tools.diagnostics import handle
+        result = await handle("cst_dismiss_dialogs", {}, offline_client)
+        data = json.loads(result[0].text)
+        assert data["status"] in ("ok", "dismissed")
+
+    @pytest.mark.asyncio
+    async def test_dismiss_dialogs_read_only(self, offline_client):
+        from mcp_cst_studio.tools.diagnostics import handle
+        result = await handle("cst_dismiss_dialogs", {"read_only": True}, offline_client)
+        data = json.loads(result[0].text)
+        assert data["status"] in ("ok", "found")
+
+    @pytest.mark.asyncio
+    async def test_start_stop_watcher_tools(self, offline_client):
+        from mcp_cst_studio.tools.diagnostics import handle
+        result = await handle("cst_start_dialog_watcher", {}, offline_client)
+        data = json.loads(result[0].text)
+        assert data["status"] in ("started", "already_running")
+        result = await handle("cst_stop_dialog_watcher", {}, offline_client)
+        data = json.loads(result[0].text)
+        assert data["status"] == "stopped"
+
+    @pytest.mark.asyncio
+    async def test_unknown_tool(self, offline_client):
+        from mcp_cst_studio.tools.diagnostics import handle
+        result = await handle("cst_nonexistent", {}, offline_client)
+        data = json.loads(result[0].text)
+        assert data["status"] == "error"
+        assert "Unknown" in data["message"]
+
+
+class TestDialogHandler:
+    """Test the dialog_handler module directly."""
+
+    def test_import(self):
+        from mcp_cst_studio.dialog_handler import (
+            DialogWatcher,
+            dismiss_cst_dialogs,
+            find_cst_dialogs,
+        )
+        # Functions should be importable and callable
+        dialogs = find_cst_dialogs()
+        assert isinstance(dialogs, list)
+
+    def test_dismiss_returns_list(self):
+        from mcp_cst_studio.dialog_handler import dismiss_cst_dialogs
+        result = dismiss_cst_dialogs()
+        assert isinstance(result, list)
+
+    def test_watcher_start_stop(self):
+        from mcp_cst_studio.dialog_handler import DialogWatcher
+        watcher = DialogWatcher(poll_interval=0.1)
+        watcher.start()
+        assert watcher.running
+        import time
+        time.sleep(0.3)
+        watcher.stop()
+        assert not watcher.running
+        log = watcher.get_log()
+        assert isinstance(log, list)
+
+    def test_watcher_clear_log(self):
+        from mcp_cst_studio.dialog_handler import DialogWatcher
+        watcher = DialogWatcher()
+        watcher.clear_log()
+        assert watcher.get_log() == []
