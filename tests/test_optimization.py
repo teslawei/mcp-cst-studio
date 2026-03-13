@@ -9,24 +9,32 @@ import tempfile
 import pytest
 
 from mcp_cst_studio.tools.optimization import (
+    _analyze_impedance_band,
     _build_initial_simplex,
     _centroid,
     _clamp_to_bounds,
+    _classify_mismatch,
     _compute_cost,
     _contract,
     _evaluate_bands,
     _expand,
     _export_s11_vba,
     _find_resonances,
+    _generate_recommendations,
     _parse_s11_data,
+    _parse_z_data,
     _reflect,
     _run_solver_vba,
     _set_params_and_solve_vba,
     _set_params_vba,
     _shrink,
     _solve_and_export_vba,
+    gamma_mag,
+    gamma_to_return_loss,
+    gamma_to_vswr,
     s11_to_vswr,
     vswr_to_s11,
+    z_to_gamma,
 )
 
 
@@ -677,3 +685,355 @@ class TestDialogHandler:
         watcher = DialogWatcher()
         watcher.clear_log()
         assert watcher.get_log() == []
+
+
+# ---------------------------------------------------------------------------
+# Impedance analysis functions
+# ---------------------------------------------------------------------------
+
+
+class TestZToGamma:
+    """Test impedance-to-reflection-coefficient conversion."""
+
+    def test_perfect_match(self):
+        """Z = Z0 should give Γ = 0."""
+        g_r, g_i = z_to_gamma(50.0, 0.0, z0=50.0)
+        assert abs(g_r) < 1e-10
+        assert abs(g_i) < 1e-10
+
+    def test_open_circuit(self):
+        """Z = very large should give Γ ≈ 1."""
+        g_r, g_i = z_to_gamma(1e6, 0.0, z0=50.0)
+        g_m = gamma_mag(g_r, g_i)
+        assert abs(g_m - 1.0) < 0.001
+
+    def test_short_circuit(self):
+        """Z = 0 should give Γ = -1."""
+        g_r, g_i = z_to_gamma(0.0, 0.0, z0=50.0)
+        assert abs(g_r - (-1.0)) < 1e-10
+        assert abs(g_i) < 1e-10
+
+    def test_purely_resistive_high(self):
+        """Z = 100Ω (2× Z0) → Γ = 1/3."""
+        g_r, g_i = z_to_gamma(100.0, 0.0, z0=50.0)
+        expected = (100 - 50) / (100 + 50)  # 1/3
+        assert abs(g_r - expected) < 1e-10
+        assert abs(g_i) < 1e-10
+
+    def test_purely_resistive_low(self):
+        """Z = 25Ω (0.5× Z0) → Γ = -1/3."""
+        g_r, g_i = z_to_gamma(25.0, 0.0, z0=50.0)
+        expected = (25 - 50) / (25 + 50)  # -1/3
+        assert abs(g_r - expected) < 1e-10
+        assert abs(g_i) < 1e-10
+
+    def test_purely_reactive(self):
+        """Z = j50Ω → |Γ| = 1 (on unit circle)."""
+        g_r, g_i = z_to_gamma(0.0, 50.0, z0=50.0)
+        g_m = gamma_mag(g_r, g_i)
+        assert abs(g_m - 1.0) < 1e-10
+
+    def test_complex_impedance(self):
+        """Z = 70 + j(-34)Ω (from our 2.4 GHz data)."""
+        g_r, g_i = z_to_gamma(69.65, -34.20, z0=50.0)
+        g_m = gamma_mag(g_r, g_i)
+        vswr = gamma_to_vswr(g_m)
+        # VSWR should be around 2.1-2.3 for this impedance
+        assert 1.5 < vswr < 3.0
+        # Return loss should be around 8-10 dB
+        rl = gamma_to_return_loss(g_m)
+        assert 7.0 < rl < 12.0
+
+    def test_high_impedance_5ghz(self):
+        """Z = 132 + j61Ω (from our 5.4 GHz data) — should show poor match."""
+        g_r, g_i = z_to_gamma(131.79, 61.16, z0=50.0)
+        g_m = gamma_mag(g_r, g_i)
+        vswr = gamma_to_vswr(g_m)
+        # Should have high VSWR (>3)
+        assert vswr > 3.0
+        rl = gamma_to_return_loss(g_m)
+        assert rl < 6.0  # Poor return loss
+
+
+class TestGammaConversions:
+    def test_gamma_to_vswr_zero(self):
+        """Perfect match Γ=0 → VSWR=1."""
+        assert gamma_to_vswr(0.0) == 1.0
+
+    def test_gamma_to_vswr_one(self):
+        """Total reflection Γ=1 → VSWR=inf."""
+        assert gamma_to_vswr(1.0) == float("inf")
+
+    def test_gamma_to_vswr_half(self):
+        """Γ=0.5 → VSWR=3."""
+        assert abs(gamma_to_vswr(0.5) - 3.0) < 1e-10
+
+    def test_return_loss_zero_gamma(self):
+        """Perfect match → infinite return loss."""
+        assert gamma_to_return_loss(0.0) == float("inf")
+
+    def test_return_loss_known(self):
+        """Γ=0.316 → return loss ≈ 10 dB."""
+        rl = gamma_to_return_loss(0.3162)
+        assert abs(rl - 10.0) < 0.1
+
+
+class TestClassifyMismatch:
+    def test_perfect_match(self):
+        result = _classify_mismatch(50.0, 0.0, z0=50.0)
+        assert result["r_class"] == "ok"
+        assert result["x_class"] == "ok"
+        assert result["vswr"] < 1.1
+
+    def test_high_resistance(self):
+        result = _classify_mismatch(150.0, 0.0, z0=50.0)
+        assert result["r_class"] == "high"
+        assert result["r_ratio"] == 3.0
+
+    def test_low_resistance(self):
+        result = _classify_mismatch(20.0, 0.0, z0=50.0)
+        assert result["r_class"] == "low"
+        assert result["r_ratio"] == 0.4
+
+    def test_inductive(self):
+        result = _classify_mismatch(50.0, 80.0, z0=50.0)
+        assert result["x_class"] == "inductive"
+
+    def test_capacitive(self):
+        result = _classify_mismatch(50.0, -80.0, z0=50.0)
+        assert result["x_class"] == "capacitive"
+
+    def test_near_resonance(self):
+        result = _classify_mismatch(50.0, 5.0, z0=50.0)
+        assert result["x_class"] == "ok"
+
+    def test_pifa_5ghz_mismatch(self):
+        """Real-world: 132+j61 at 5.4 GHz — high R, inductive."""
+        result = _classify_mismatch(131.79, 61.16, z0=50.0)
+        assert result["r_class"] == "high"
+        assert result["x_class"] == "inductive"
+        assert result["vswr"] > 3.0
+
+
+class TestGenerateRecommendations:
+    def test_passing_band(self):
+        recs = _generate_recommendations("2.4 GHz", 55.0, -10.0, 50.0, 1.5, 2.5)
+        assert len(recs) == 1
+        assert "✓" in recs[0]
+
+    def test_high_impedance_inductive(self):
+        recs = _generate_recommendations(
+            "5 GHz", 130.0, 70.0, 50.0, 4.5, 2.5
+        )
+        assert len(recs) >= 2
+        assert "✗" in recs[0]
+        # Should mention moving feed or widening short
+        assert any("feed" in r.lower() or "short" in r.lower() for r in recs)
+
+    def test_very_high_impedance(self):
+        recs = _generate_recommendations(
+            "6 GHz", 200.0, 90.0, 50.0, 6.0, 2.5
+        )
+        assert any("4.0×" in r for r in recs)
+
+    def test_low_impedance(self):
+        recs = _generate_recommendations(
+            "Test", 15.0, -5.0, 50.0, 5.0, 2.5
+        )
+        assert any("low" in r.lower() for r in recs)
+
+    def test_severe_mismatch(self):
+        recs = _generate_recommendations(
+            "Test", 200.0, 100.0, 50.0, 8.0, 2.5
+        )
+        # Should suggest dedicated resonant element
+        assert any("resonant element" in r.lower() or "slot" in r.lower() for r in recs)
+
+
+class TestParseZData:
+    def test_parse_z_real(self):
+        """Test parsing Z-parameter real part export."""
+        content = (
+            "          Frequency / GHz                Z1,1/Re\n"
+            "--------------------------------------------------------------\n"
+            "                        1                    45.2\n"
+            "                      2.4                    69.7\n"
+            "                      5.4                   131.8\n"
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(content)
+            path = f.name
+
+        try:
+            freqs, values = _parse_z_data(path)
+            assert len(freqs) == 3
+            assert abs(freqs[1] - 2.4) < 1e-6
+            assert abs(values[1] - 69.7) < 1e-6
+        finally:
+            os.unlink(path)
+
+    def test_parse_z_imag(self):
+        """Test parsing Z-parameter imaginary part export."""
+        content = (
+            "          Frequency / GHz                Z1,1/Im\n"
+            "--------------------------------------------------------------\n"
+            "                        1                    79.8\n"
+            "                      2.4                   -34.2\n"
+            "                      5.4                    61.2\n"
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(content)
+            path = f.name
+
+        try:
+            freqs, values = _parse_z_data(path)
+            assert len(freqs) == 3
+            assert abs(values[1] - (-34.2)) < 1e-6
+        finally:
+            os.unlink(path)
+
+    def test_parse_empty(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write("Header\n---\n")
+            path = f.name
+
+        try:
+            with pytest.raises(ValueError, match="No Z-parameter data"):
+                _parse_z_data(path)
+        finally:
+            os.unlink(path)
+
+
+class TestAnalyzeImpedanceBand:
+    def _make_z_data(self):
+        """Create sample impedance data mimicking our PIFA Smith chart."""
+        # Frequencies from 1 to 8 GHz
+        freqs = [f / 10.0 for f in range(10, 81)]
+        z_real = []
+        z_imag = []
+        for f in freqs:
+            if 2.3 <= f <= 2.6:
+                # Near resonance at 2.4 GHz: R ≈ 70, X ≈ -30 to +30
+                r = 70.0 - 20.0 * (f - 2.45) ** 2 / 0.1 ** 2
+                x = -34.0 + 200.0 * (f - 2.424)
+                z_real.append(max(r, 10))
+                z_imag.append(x)
+            elif 5.0 <= f <= 6.0:
+                # High impedance in 5 GHz range
+                z_real.append(130.0 + 10.0 * (f - 5.5))
+                z_imag.append(60.0 + 15.0 * (f - 5.0))
+            elif 6.0 < f <= 7.5:
+                # Even higher impedance at 6+ GHz
+                z_real.append(120.0 + 5.0 * (f - 6.5) ** 2)
+                z_imag.append(85.0 + 3.0 * (f - 6.5))
+            else:
+                z_real.append(50.0 + 150.0 * abs(f - 2.45) / 6.0)
+                z_imag.append(80.0 * math.sin(f * 1.5))
+        return freqs, z_real, z_imag
+
+    def test_analyze_passing_band(self):
+        freqs, z_real, z_imag = self._make_z_data()
+        band = {
+            "name": "2.4 GHz",
+            "f_low_ghz": 2.4,
+            "f_high_ghz": 2.5,
+            "vswr_target": 3.0,  # Relaxed target for our mock data
+        }
+        result = _analyze_impedance_band(freqs, z_real, z_imag, band, z0=50.0)
+        assert result["name"] == "2.4 GHz"
+        assert "worst_vswr" in result
+        assert "best_vswr" in result
+        assert "average_impedance" in result
+        assert "recommendations" in result
+        assert "detail_points" in result
+
+    def test_analyze_failing_band(self):
+        freqs, z_real, z_imag = self._make_z_data()
+        band = {
+            "name": "5 GHz",
+            "f_low_ghz": 5.15,
+            "f_high_ghz": 5.85,
+            "vswr_target": 2.0,
+        }
+        result = _analyze_impedance_band(freqs, z_real, z_imag, band, z0=50.0)
+        assert result["status"] == "FAIL"
+        assert result["worst_vswr"] > 2.0
+        # Average R should be high
+        assert result["average_impedance"]["r_ohm"] > 100
+        # Should have recommendations
+        assert len(result["recommendations"]) >= 2
+
+    def test_analyze_no_data(self):
+        band = {
+            "name": "Ka-band",
+            "f_low_ghz": 26.0,
+            "f_high_ghz": 40.0,
+        }
+        result = _analyze_impedance_band([1.0, 2.0], [50.0, 50.0], [0.0, 0.0], band)
+        assert result["status"] == "NO_DATA"
+
+    def test_detail_points(self):
+        freqs, z_real, z_imag = self._make_z_data()
+        band = {
+            "name": "6 GHz",
+            "f_low_ghz": 5.925,
+            "f_high_ghz": 7.125,
+            "vswr_target": 2.5,
+        }
+        sample = [6.0, 6.5, 7.0]
+        result = _analyze_impedance_band(
+            freqs, z_real, z_imag, band, z0=50.0, sample_freqs=sample
+        )
+        assert len(result["detail_points"]) >= 3
+        for pt in result["detail_points"]:
+            assert "r_ohm" in pt
+            assert "x_ohm" in pt
+            assert "vswr" in pt
+            assert "mismatch" in pt
+
+    def test_custom_z0(self):
+        """Test with 75Ω reference impedance."""
+        freqs = [2.4, 2.45, 2.5]
+        z_real = [75.0, 75.0, 75.0]
+        z_imag = [0.0, 0.0, 0.0]
+        band = {
+            "name": "Test",
+            "f_low_ghz": 2.4,
+            "f_high_ghz": 2.5,
+            "vswr_target": 2.0,
+        }
+        result = _analyze_impedance_band(freqs, z_real, z_imag, band, z0=75.0)
+        # Perfect match at 75Ω
+        assert result["status"] == "PASS"
+        assert result["worst_vswr"] < 1.1
+
+
+class TestAnalyzeImpedanceOffline:
+    @pytest.fixture
+    def offline_client(self):
+        from mcp_cst_studio.config import CSTConfig
+        config = CSTConfig(connected=False)
+        return CSTClient(config=config)
+
+    @pytest.mark.asyncio
+    async def test_analyze_impedance_offline(self, offline_client):
+        from mcp_cst_studio.tools.optimization import handle
+        result = await handle(
+            "cst_analyze_impedance",
+            {
+                "bands": [
+                    {"name": "2.4 GHz", "f_low_ghz": 2.4, "f_high_ghz": 2.5, "vswr_target": 2.5},
+                    {"name": "5 GHz", "f_low_ghz": 5.15, "f_high_ghz": 5.85, "vswr_target": 2.5},
+                ],
+                "z0": 50,
+                "port": 1,
+            },
+            offline_client,
+        )
+        assert len(result) == 1
+        data = json.loads(result[0].text)
+        assert data["status"] == "offline"
+        assert "vba" in data
+        assert "Z-Parameters" in data["vba"]
+        assert data["z0_ohm"] == 50
+        assert "analysis_guidance" in data
