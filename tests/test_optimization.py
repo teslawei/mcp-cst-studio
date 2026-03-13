@@ -10,6 +10,7 @@ import pytest
 
 from mcp_cst_studio.tools.optimization import (
     _analyze_impedance_band,
+    _build_impedance_vba,
     _build_initial_simplex,
     _centroid,
     _clamp_to_bounds,
@@ -321,6 +322,19 @@ class TestVBAGeneration:
         assert "ASCIIExport" in vba
         assert "S1,1" in vba
         assert "C:/cst_projects/test.csv" in vba
+
+    def test_build_impedance_vba_exports_s_params(self):
+        """Impedance VBA should export S-parameters (not Z-parameters)."""
+        vba = _build_impedance_vba(port=1)
+        assert "S-Parameters" in vba
+        assert "S1,1" in vba
+        assert "ASCIIExport" in vba
+        # Must NOT reference Z-Parameters (that's the bug we fixed)
+        assert "Z-Parameters" not in vba
+
+    def test_build_impedance_vba_port2(self):
+        vba = _build_impedance_vba(port=2)
+        assert "S2,2" in vba
 
 
 # ---------------------------------------------------------------------------
@@ -817,37 +831,52 @@ class TestClassifyMismatch:
 
 class TestGenerateRecommendations:
     def test_passing_band(self):
-        recs = _generate_recommendations("2.4 GHz", 55.0, -10.0, 50.0, 1.5, 2.5)
+        recs = _generate_recommendations(
+            "2.4 GHz", 1.5, 2.5, -15.0, None, 2.4, 2.5
+        )
         assert len(recs) == 1
         assert "✓" in recs[0]
 
-    def test_high_impedance_inductive(self):
+    def test_resonance_below_band(self):
+        """Nearest resonance below target band → recommend shortening."""
+        res = {"freq_ghz": 2.0, "s11_db": -12.0, "vswr": 1.67}
         recs = _generate_recommendations(
-            "5 GHz", 130.0, 70.0, 50.0, 4.5, 2.5
+            "5 GHz", 4.5, 2.5, -3.0, res, 5.15, 5.85
         )
         assert len(recs) >= 2
         assert "✗" in recs[0]
-        # Should mention moving feed or widening short
-        assert any("feed" in r.lower() or "short" in r.lower() for r in recs)
+        # Should mention shortening or shifting upward
+        assert any("shorten" in r.lower() or "below" in r.lower() for r in recs)
 
-    def test_very_high_impedance(self):
+    def test_resonance_above_band(self):
+        """Nearest resonance above target band → recommend lengthening."""
+        res = {"freq_ghz": 8.0, "s11_db": -10.0, "vswr": 1.93}
         recs = _generate_recommendations(
-            "6 GHz", 200.0, 90.0, 50.0, 6.0, 2.5
+            "6 GHz", 6.0, 2.5, -2.0, res, 5.925, 7.125
         )
-        assert any("4.0×" in r for r in recs)
+        assert any("lengthen" in r.lower() or "above" in r.lower() for r in recs)
 
-    def test_low_impedance(self):
+    def test_resonance_in_band_narrow(self):
+        """Resonance within band but narrow → recommend bandwidth increase."""
+        res = {"freq_ghz": 2.45, "s11_db": -8.0, "vswr": 2.3}
         recs = _generate_recommendations(
-            "Test", 15.0, -5.0, 50.0, 5.0, 2.5
+            "2.4 GHz", 3.5, 2.5, -5.0, res, 2.4, 2.5
         )
-        assert any("low" in r.lower() for r in recs)
+        assert any("bandwidth" in r.lower() or "height" in r.lower() for r in recs)
+
+    def test_no_resonance(self):
+        """No resonance at all → recommend adding resonant element."""
+        recs = _generate_recommendations(
+            "Test", 8.0, 2.5, -1.0, None, 5.0, 6.0
+        )
+        assert any("resonant element" in r.lower() or "resonator" in r.lower() for r in recs)
 
     def test_severe_mismatch(self):
         recs = _generate_recommendations(
-            "Test", 200.0, 100.0, 50.0, 8.0, 2.5
+            "Test", 8.0, 2.5, -1.0, None, 5.0, 6.0
         )
-        # Should suggest dedicated resonant element
-        assert any("resonant element" in r.lower() or "slot" in r.lower() for r in recs)
+        # Should mention topology change or severe mismatch
+        assert any("severe" in r.lower() or "topology" in r.lower() for r in recs)
 
 
 class TestParseZData:
@@ -905,61 +934,52 @@ class TestParseZData:
 
 
 class TestAnalyzeImpedanceBand:
-    def _make_z_data(self):
-        """Create sample impedance data mimicking our PIFA Smith chart."""
-        # Frequencies from 1 to 8 GHz
-        freqs = [f / 10.0 for f in range(10, 81)]
-        z_real = []
-        z_imag = []
+    def _make_s11_data(self):
+        """Create sample S11 data with resonances at 2.45 GHz and 5.5 GHz."""
+        freqs = [f / 10.0 for f in range(10, 81)]  # 1.0 to 8.0 GHz
+        s11 = []
         for f in freqs:
-            if 2.3 <= f <= 2.6:
-                # Near resonance at 2.4 GHz: R ≈ 70, X ≈ -30 to +30
-                r = 70.0 - 20.0 * (f - 2.45) ** 2 / 0.1 ** 2
-                x = -34.0 + 200.0 * (f - 2.424)
-                z_real.append(max(r, 10))
-                z_imag.append(x)
-            elif 5.0 <= f <= 6.0:
-                # High impedance in 5 GHz range
-                z_real.append(130.0 + 10.0 * (f - 5.5))
-                z_imag.append(60.0 + 15.0 * (f - 5.0))
-            elif 6.0 < f <= 7.5:
-                # Even higher impedance at 6+ GHz
-                z_real.append(120.0 + 5.0 * (f - 6.5) ** 2)
-                z_imag.append(85.0 + 3.0 * (f - 6.5))
-            else:
-                z_real.append(50.0 + 150.0 * abs(f - 2.45) / 6.0)
-                z_imag.append(80.0 * math.sin(f * 1.5))
-        return freqs, z_real, z_imag
+            # Gaussian dip at 2.45 GHz (peak -15 dB)
+            dip1 = -15.0 * math.exp(-((f - 2.45) ** 2) / (2 * 0.05 ** 2))
+            # Gaussian dip at 5.5 GHz (peak -12 dB)
+            dip2 = -12.0 * math.exp(-((f - 5.5) ** 2) / (2 * 0.1 ** 2))
+            s11.append(min(dip1 + dip2, -0.1))
+        resonances = _find_resonances(freqs, s11)
+        return freqs, s11, resonances
 
     def test_analyze_passing_band(self):
-        freqs, z_real, z_imag = self._make_z_data()
+        freqs, s11, resonances = self._make_s11_data()
         band = {
             "name": "2.4 GHz",
             "f_low_ghz": 2.4,
             "f_high_ghz": 2.5,
-            "vswr_target": 3.0,  # Relaxed target for our mock data
+            "vswr_target": 3.0,  # Relaxed target
         }
-        result = _analyze_impedance_band(freqs, z_real, z_imag, band, z0=50.0)
+        result = _analyze_impedance_band(
+            freqs, s11, band, z0=50.0, resonances=resonances
+        )
         assert result["name"] == "2.4 GHz"
         assert "worst_vswr" in result
         assert "best_vswr" in result
-        assert "average_impedance" in result
+        assert "average_s11_db" in result
         assert "recommendations" in result
         assert "detail_points" in result
 
     def test_analyze_failing_band(self):
-        freqs, z_real, z_imag = self._make_z_data()
+        freqs, s11, resonances = self._make_s11_data()
         band = {
-            "name": "5 GHz",
-            "f_low_ghz": 5.15,
-            "f_high_ghz": 5.85,
+            "name": "6 GHz",
+            "f_low_ghz": 5.925,
+            "f_high_ghz": 7.125,
             "vswr_target": 2.0,
         }
-        result = _analyze_impedance_band(freqs, z_real, z_imag, band, z0=50.0)
+        result = _analyze_impedance_band(
+            freqs, s11, band, z0=50.0, resonances=resonances
+        )
         assert result["status"] == "FAIL"
         assert result["worst_vswr"] > 2.0
-        # Average R should be high
-        assert result["average_impedance"]["r_ohm"] > 100
+        # Average S11 should be poor (close to 0 dB)
+        assert result["average_s11_db"] > -10
         # Should have recommendations
         assert len(result["recommendations"]) >= 2
 
@@ -969,43 +989,42 @@ class TestAnalyzeImpedanceBand:
             "f_low_ghz": 26.0,
             "f_high_ghz": 40.0,
         }
-        result = _analyze_impedance_band([1.0, 2.0], [50.0, 50.0], [0.0, 0.0], band)
+        result = _analyze_impedance_band([1.0, 2.0], [-5.0, -5.0], band)
         assert result["status"] == "NO_DATA"
 
     def test_detail_points(self):
-        freqs, z_real, z_imag = self._make_z_data()
+        freqs, s11, resonances = self._make_s11_data()
         band = {
-            "name": "6 GHz",
-            "f_low_ghz": 5.925,
-            "f_high_ghz": 7.125,
+            "name": "5 GHz",
+            "f_low_ghz": 5.15,
+            "f_high_ghz": 5.85,
             "vswr_target": 2.5,
         }
-        sample = [6.0, 6.5, 7.0]
+        sample = [5.2, 5.5, 5.8]
         result = _analyze_impedance_band(
-            freqs, z_real, z_imag, band, z0=50.0, sample_freqs=sample
+            freqs, s11, band, z0=50.0,
+            sample_freqs=sample, resonances=resonances,
         )
         assert len(result["detail_points"]) >= 3
         for pt in result["detail_points"]:
-            assert "r_ohm" in pt
-            assert "x_ohm" in pt
+            assert "s11_db" in pt
             assert "vswr" in pt
-            assert "mismatch" in pt
+            assert "return_loss_db" in pt
+            assert "match_quality" in pt
 
-    def test_custom_z0(self):
-        """Test with 75Ω reference impedance."""
+    def test_perfect_match(self):
+        """Test with very good S11 data → should PASS."""
         freqs = [2.4, 2.45, 2.5]
-        z_real = [75.0, 75.0, 75.0]
-        z_imag = [0.0, 0.0, 0.0]
+        s11 = [-20.0, -25.0, -20.0]
         band = {
             "name": "Test",
             "f_low_ghz": 2.4,
             "f_high_ghz": 2.5,
             "vswr_target": 2.0,
         }
-        result = _analyze_impedance_band(freqs, z_real, z_imag, band, z0=75.0)
-        # Perfect match at 75Ω
+        result = _analyze_impedance_band(freqs, s11, band, z0=50.0)
         assert result["status"] == "PASS"
-        assert result["worst_vswr"] < 1.1
+        assert result["worst_vswr"] < 1.3
 
 
 class TestAnalyzeImpedanceOffline:
@@ -1034,6 +1053,7 @@ class TestAnalyzeImpedanceOffline:
         data = json.loads(result[0].text)
         assert data["status"] == "offline"
         assert "vba" in data
-        assert "Z-Parameters" in data["vba"]
+        assert "S-Parameters" in data["vba"]
+        assert "S1,1" in data["vba"]
         assert data["z0_ohm"] == 50
         assert "analysis_guidance" in data

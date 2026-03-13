@@ -106,11 +106,21 @@ class CSTClient:
         return {"status": "disconnected"}
 
     def new_project(self, path: str, project_type: str = "MWS") -> dict:
-        """Create a new CST project."""
+        """Create a new CST project.
+
+        Starts a background dialog watcher before saving because
+        ``project.save(path)`` can trigger a blocking modal dialog
+        (e.g. overwrite confirmation).  The watcher auto-dismisses it.
+        """
         if self.connected and self._de is not None:
             try:
                 self._project = self._de.new_mws()
-                self._project.save(path)
+                # Start watcher to handle potential save dialog
+                self.start_dialog_watcher()
+                try:
+                    self._project.save(path)
+                finally:
+                    self.stop_dialog_watcher()
                 self._project_path = path
                 return {"status": "created", "path": path, "type": project_type}
             except Exception as e:
@@ -142,14 +152,24 @@ class CSTClient:
         }
 
     def save_project(self, path: str | None = None) -> dict:
-        """Save the current project."""
+        """Save the current project.
+
+        Starts a background dialog watcher because ``project.save()``
+        can trigger a blocking modal dialog (overwrite confirmation,
+        file-in-use warning, etc.).  The watcher auto-dismisses it.
+        """
         save_path = path or self._project_path
         if self.connected and self._project is not None:
             try:
-                if save_path:
-                    self._project.save(save_path)
-                else:
-                    self._project.save()
+                # Start watcher to handle potential save dialog
+                self.start_dialog_watcher()
+                try:
+                    if save_path:
+                        self._project.save(save_path)
+                    else:
+                        self._project.save()
+                finally:
+                    self.stop_dialog_watcher()
                 self._project_path = save_path
                 return {"status": "saved", "path": save_path}
             except Exception as e:
@@ -272,16 +292,45 @@ class CSTClient:
         Uses ``model3d.SelectTreeItem()`` + ``model3d.ASCIIExport`` Python
         methods directly — avoids VBA and history bloat.  Works regardless of
         the current CST view state.
+
+        Validates that the output file was actually created after export.
         """
         if self.connected and self._project is not None:
             try:
+                # Remove stale file if it exists
+                safe_path = filepath.replace("\\", "/")
+                if os.path.exists(safe_path):
+                    os.remove(safe_path)
+
                 m3d = self._project.model3d
                 m3d.SelectTreeItem(tree_path)
                 ae = m3d.ASCIIExport
                 ae.Reset()
-                ae.FileName(filepath.replace("\\", "/"))
+                ae.FileName(safe_path)
                 ae.SetFileType("csv")
                 ae.Execute()
+
+                # Validate the file was actually created
+                if not os.path.exists(safe_path):
+                    return {
+                        "status": "error",
+                        "message": (
+                            f"Export completed but file not found at "
+                            f"'{safe_path}'. The tree item '{tree_path}' "
+                            "may not exist or may be empty."
+                        ),
+                    }
+
+                # Check file is non-empty
+                if os.path.getsize(safe_path) == 0:
+                    return {
+                        "status": "error",
+                        "message": (
+                            f"Export produced empty file at '{safe_path}'. "
+                            f"Tree item '{tree_path}' may have no data."
+                        ),
+                    }
+
                 return {"status": "exported", "path": filepath}
             except Exception as e:
                 return {"status": "error", "message": str(e)}

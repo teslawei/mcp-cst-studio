@@ -85,13 +85,13 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_analyze_impedance",
         description=(
-            "Analyze antenna input impedance (Z = R + jX) across frequency bands "
-            "and provide Smith chart metrics with design recommendations. "
-            "Exports Z-parameter data from a completed simulation, computes "
-            "reflection coefficient, normalized impedance, VSWR, and classifies "
-            "the mismatch type per band (resistive high/low, inductive/capacitive). "
-            "Returns actionable design guidance for moving impedance toward the "
-            "target (typically 50 ohms). Read-only — does not modify the model."
+            "Analyze antenna impedance match quality across frequency bands using "
+            "S-parameter data. Exports S11 from a completed simulation, computes "
+            "VSWR and return loss per frequency point, detects resonances, and "
+            "provides resonance-based design recommendations (e.g. shift resonance "
+            "up/down, widen bandwidth). Returns per-band worst/best VSWR, match "
+            "quality classification, nearest resonance info, and actionable "
+            "design guidance. Read-only — does not modify the model."
         ),
         inputSchema={
             "type": "object",
@@ -527,22 +527,41 @@ def _classify_mismatch(r: float, x: float, z0: float = 50.0) -> dict:
 
 def _generate_recommendations(
     band_name: str,
-    avg_r: float,
-    avg_x: float,
-    z0: float,
     worst_vswr: float,
     target_vswr: float,
+    avg_s11_db: float,
+    nearest_resonance: dict | None,
+    f_low: float,
+    f_high: float,
 ) -> list[str]:
-    """Generate design recommendations based on impedance analysis.
+    """Generate design recommendations from S11 magnitude analysis.
 
-    Returns a list of actionable recommendation strings specific to
-    antenna design (IFA, PIFA, patch, monopole, etc.).
+    Uses resonance locations and VSWR trends to provide actionable
+    antenna design guidance.  Works with S11 dB data (no complex
+    impedance needed).
+
+    Parameters
+    ----------
+    band_name : str
+        Label for the band.
+    worst_vswr : float
+        Worst VSWR within the band.
+    target_vswr : float
+        VSWR target for the band.
+    avg_s11_db : float
+        Average S11 (dB) within the band.
+    nearest_resonance : dict | None
+        Nearest detected resonance ``{freq_ghz, s11_db, vswr}``.
+    f_low, f_high : float
+        Band edges in GHz.
     """
     recs: list[str] = []
-    r_ratio = avg_r / z0 if z0 > 0 else 1.0
 
     if worst_vswr <= target_vswr:
-        recs.append(f"✓ {band_name} meets VSWR target ({worst_vswr:.2f} ≤ {target_vswr:.1f})")
+        recs.append(
+            f"✓ {band_name} meets VSWR target "
+            f"({worst_vswr:.2f} ≤ {target_vswr:.1f})"
+        )
         return recs
 
     gap = worst_vswr - target_vswr
@@ -551,73 +570,53 @@ def _generate_recommendations(
         f"(gap: {gap:.2f})"
     )
 
-    # Resistive mismatch recommendations
-    if r_ratio > 2.0:
+    band_center = (f_low + f_high) / 2.0
+
+    # Resonance-based recommendations
+    if nearest_resonance:
+        res_freq = nearest_resonance["freq_ghz"]
+        if res_freq < f_low:
+            shift = f_low - res_freq
+            recs.append(
+                f"  Nearest resonance at {res_freq:.2f} GHz is {shift:.2f} GHz "
+                "BELOW band. Shorten the resonant path to shift upward: "
+                "reduce patch length, shorten slot, decrease meander/arm length, "
+                "or trim ground slot dimensions."
+            )
+        elif res_freq > f_high:
+            shift = res_freq - f_high
+            recs.append(
+                f"  Nearest resonance at {res_freq:.2f} GHz is {shift:.2f} GHz "
+                "ABOVE band. Lengthen the resonant path to shift downward: "
+                "increase patch length, extend slot, add meander/stub, "
+                "or enlarge ground slot."
+            )
+        else:
+            # Resonance is within band but match isn't good enough
+            recs.append(
+                f"  Resonance at {res_freq:.2f} GHz is within band but "
+                "bandwidth is insufficient. Increase bandwidth: raise "
+                "substrate height, widen conductors, use thicker ground "
+                "plane coupling (wider slots), or add parasitic elements."
+            )
+    else:
         recs.append(
-            f"  R is {r_ratio:.1f}× Z0 — impedance far too high. "
-            "For PIFA/IFA: move feed closer to shorting wall, widen shorting "
-            "wall/pin, or increase ground plane coupling (larger ground slot, "
-            "closer slot to patch edge)."
-        )
-    elif r_ratio > 1.5:
-        recs.append(
-            f"  R is {r_ratio:.1f}× Z0 — moderately high. "
-            "For PIFA: adjust feed position toward short, slightly widen "
-            "shorting wall, or increase ground slot width for better coupling."
-        )
-    elif r_ratio < 0.5:
-        recs.append(
-            f"  R is {r_ratio:.1f}× Z0 — impedance too low. "
-            "For PIFA/IFA: move feed away from shorting wall, narrow "
-            "shorting wall, or reduce ground plane coupling."
-        )
-    elif r_ratio < 0.67:
-        recs.append(
-            f"  R is {r_ratio:.1f}× Z0 — slightly low. "
-            "For PIFA: shift feed slightly away from short, or fine-tune "
-            "ground slot dimensions."
+            "  No resonance detected near this band. Consider adding a "
+            "dedicated resonant element (parasitic strip, additional slot, "
+            "or coupled resonator) targeting this frequency range."
         )
 
-    # Reactive mismatch recommendations
-    if avg_x > 50:
-        recs.append(
-            f"  X={avg_x:+.0f}Ω — strongly inductive. The radiating element "
-            "is electrically too long at this frequency. Shorten the resonant "
-            "path, add a capacitive slot/gap in the patch, or add series "
-            "capacitance. For ground slots: shorten slot length or move slot "
-            "to shift resonance upward."
-        )
-    elif avg_x > 20:
-        recs.append(
-            f"  X={avg_x:+.0f}Ω — moderately inductive. Slight shortening of "
-            "resonant element or slot/stub tuning can compensate. Consider "
-            "U-slot inset adjustment or feed position fine-tuning."
-        )
-    elif avg_x < -50:
-        recs.append(
-            f"  X={avg_x:+.0f}Ω — strongly capacitive. The radiating element "
-            "is electrically too short. Lengthen the resonant path, add "
-            "inductive loading (meander, stub), or increase patch height."
-        )
-    elif avg_x < -20:
-        recs.append(
-            f"  X={avg_x:+.0f}Ω — moderately capacitive. Lengthen the resonant "
-            "element slightly, or add a small inductive load/stub."
-        )
-
-    # Bandwidth recommendations
+    # Severity-based recommendations
     if worst_vswr > 5.0:
         recs.append(
-            "  Severe mismatch suggests no strong resonance in this band. "
-            "Consider adding a dedicated resonant element (parasitic strip, "
-            "additional slot, or coupled resonator) targeting this frequency range."
+            "  Severe mismatch (VSWR > 5). The antenna likely has no useful "
+            "mode in this band. A topology change may be needed (stacked "
+            "patch, additional radiating element, or matching network)."
         )
-    elif worst_vswr > 3.0 and abs(avg_x) > 30:
+    elif worst_vswr > 3.0:
         recs.append(
-            "  Combined high R and large reactance indicate the mode is weakly "
-            "excited. Ground plane slots can enhance coupling to higher-order "
-            "modes. Position/size slots to match the half-wavelength at the "
-            "target frequency."
+            "  Moderate mismatch. Fine-tuning feed position, slot dimensions, "
+            "or ground plane geometry may improve the match."
         )
 
     return recs
@@ -625,16 +624,31 @@ def _generate_recommendations(
 
 def _analyze_impedance_band(
     freqs: list[float],
-    z_real: list[float],
-    z_imag: list[float],
+    s11_db: list[float],
     band: dict,
     z0: float = 50.0,
     sample_freqs: list[float] | None = None,
+    resonances: list[dict] | None = None,
 ) -> dict:
-    """Analyze impedance within a frequency band.
+    """Analyze impedance match quality within a frequency band from S11 data.
 
-    Returns per-band metrics: worst/best VSWR, average impedance,
-    mismatch classification, and frequency-by-frequency detail.
+    Computes VSWR, return loss, and match quality from S11 magnitude (dB).
+    For full R+jX impedance, complex S-parameter data would be needed.
+
+    Parameters
+    ----------
+    freqs : list[float]
+        Frequency values in GHz.
+    s11_db : list[float]
+        S11 magnitude values in dB (negative = good match).
+    band : dict
+        Band specification with name, f_low_ghz, f_high_ghz, vswr_target.
+    z0 : float
+        Reference impedance in ohms (used for VSWR context, default 50).
+    sample_freqs : list[float] | None
+        Specific frequencies for detailed reporting.
+    resonances : list[dict] | None
+        Previously detected resonances for recommendation context.
     """
     f_low = band["f_low_ghz"]
     f_high = band["f_high_ghz"]
@@ -642,43 +656,50 @@ def _analyze_impedance_band(
 
     # Filter points within band
     band_data = []
-    for f, r, x in zip(freqs, z_real, z_imag):
+    for f, s in zip(freqs, s11_db):
         if f_low <= f <= f_high:
-            g_r, g_i = z_to_gamma(r, x, z0)
-            g_m = gamma_mag(g_r, g_i)
+            # Compute |Γ| from S11 dB
+            if s >= 0:
+                g_m = 1.0
+            else:
+                g_m = 10.0 ** (s / 20.0)
+            vswr = gamma_to_vswr(g_m)
+            rl = gamma_to_return_loss(g_m) if g_m > 0 else float("inf")
             band_data.append({
                 "freq_ghz": f,
-                "r_ohm": r,
-                "x_ohm": x,
+                "s11_db": s,
                 "gamma_mag": g_m,
-                "vswr": gamma_to_vswr(g_m),
-                "return_loss_db": gamma_to_return_loss(g_m),
+                "vswr": vswr,
+                "return_loss_db": rl,
             })
 
     if not band_data:
         return {
             "name": band["name"],
             "status": "NO_DATA",
-            "message": f"No impedance data in {f_low}-{f_high} GHz",
+            "message": f"No data in {f_low}-{f_high} GHz",
         }
 
     # Aggregate metrics
-    worst_vswr_pt = max(band_data, key=lambda d: d["vswr"])
-    best_vswr_pt = min(band_data, key=lambda d: d["vswr"])
-    avg_r = sum(d["r_ohm"] for d in band_data) / len(band_data)
-    avg_x = sum(d["x_ohm"] for d in band_data) / len(band_data)
+    worst_pt = max(band_data, key=lambda d: d["vswr"])
+    best_pt = min(band_data, key=lambda d: d["vswr"])
+    avg_s11 = sum(d["s11_db"] for d in band_data) / len(band_data)
 
-    passed = worst_vswr_pt["vswr"] <= target_vswr
+    passed = worst_pt["vswr"] <= target_vswr
+    target_s11 = vswr_to_s11(target_vswr)
 
-    # Classification at worst frequency
-    worst_class = _classify_mismatch(
-        worst_vswr_pt["r_ohm"], worst_vswr_pt["x_ohm"], z0
-    )
+    # Find nearest resonance to this band
+    nearest_res = None
+    if resonances:
+        band_center = (f_low + f_high) / 2.0
+        nearest_res = min(
+            resonances, key=lambda r: abs(r["freq_ghz"] - band_center)
+        )
 
     # Recommendations
     recommendations = _generate_recommendations(
-        band["name"], avg_r, avg_x, z0,
-        worst_vswr_pt["vswr"], target_vswr,
+        band["name"], worst_pt["vswr"], target_vswr,
+        avg_s11, nearest_res, f_low, f_high,
     )
 
     # Sample points for detailed report
@@ -691,48 +712,49 @@ def _analyze_impedance_band(
             f_low,
             (f_low + f_high) / 2,
             f_high,
-            worst_vswr_pt["freq_ghz"],
-            best_vswr_pt["freq_ghz"],
+            worst_pt["freq_ghz"],
+            best_pt["freq_ghz"],
         ]))
 
     for f_target in targets:
         if f_low <= f_target <= f_high:
-            closest = min(band_data, key=lambda d: abs(d["freq_ghz"] - f_target))
+            closest = min(
+                band_data, key=lambda d: abs(d["freq_ghz"] - f_target)
+            )
+            # Classify match quality by return loss
+            rl = closest["return_loss_db"]
+            if rl > 15:
+                match_quality = "excellent"
+            elif rl > 10:
+                match_quality = "good"
+            elif rl > 7:
+                match_quality = "marginal"
+            elif rl > 3:
+                match_quality = "poor"
+            else:
+                match_quality = "very_poor"
+
             detail_points.append({
                 "freq_ghz": round(closest["freq_ghz"], 4),
-                "r_ohm": round(closest["r_ohm"], 2),
-                "x_ohm": round(closest["x_ohm"], 2),
-                "z_mag_ohm": round(
-                    math.sqrt(closest["r_ohm"] ** 2 + closest["x_ohm"] ** 2), 2
-                ),
+                "s11_db": round(closest["s11_db"], 2),
                 "vswr": round(closest["vswr"], 3),
-                "return_loss_db": round(closest["return_loss_db"], 2),
-                "mismatch": _classify_mismatch(
-                    closest["r_ohm"], closest["x_ohm"], z0
-                ),
+                "return_loss_db": round(rl, 2),
+                "match_quality": match_quality,
             })
 
     return {
         "name": band["name"],
         "status": "PASS" if passed else "FAIL",
         "target_vswr": target_vswr,
-        "worst_vswr": round(worst_vswr_pt["vswr"], 3),
-        "worst_freq_ghz": round(worst_vswr_pt["freq_ghz"], 4),
-        "worst_impedance": {
-            "r_ohm": round(worst_vswr_pt["r_ohm"], 2),
-            "x_ohm": round(worst_vswr_pt["x_ohm"], 2),
-        },
-        "best_vswr": round(best_vswr_pt["vswr"], 3),
-        "best_freq_ghz": round(best_vswr_pt["freq_ghz"], 4),
-        "best_impedance": {
-            "r_ohm": round(best_vswr_pt["r_ohm"], 2),
-            "x_ohm": round(best_vswr_pt["x_ohm"], 2),
-        },
-        "average_impedance": {
-            "r_ohm": round(avg_r, 2),
-            "x_ohm": round(avg_x, 2),
-        },
-        "worst_mismatch": worst_class,
+        "target_s11_db": round(target_s11, 2),
+        "worst_vswr": round(worst_pt["vswr"], 3),
+        "worst_s11_db": round(worst_pt["s11_db"], 2),
+        "worst_freq_ghz": round(worst_pt["freq_ghz"], 4),
+        "best_vswr": round(best_pt["vswr"], 3),
+        "best_s11_db": round(best_pt["s11_db"], 2),
+        "best_freq_ghz": round(best_pt["freq_ghz"], 4),
+        "average_s11_db": round(avg_s11, 2),
+        "nearest_resonance": nearest_res,
         "num_points": len(band_data),
         "recommendations": recommendations,
         "detail_points": detail_points,
@@ -1266,8 +1288,15 @@ async def _handle_refine(args: dict, client: CSTClient) -> dict:
 async def _handle_analyze_impedance(args: dict, client: CSTClient) -> dict:
     """Handle cst_analyze_impedance.
 
-    Exports Z-parameter data (real + imaginary impedance vs frequency),
-    analyzes per-band impedance metrics, and generates design recommendations.
+    Exports S11 data and analyzes impedance match quality per band.
+    Uses S-parameter magnitude (dB) to compute VSWR, return loss,
+    detect resonances, and provide design recommendations.
+
+    Note: CST's Z-parameter tree items exported via ASCIIExport return
+    dB-like values rather than actual impedance in Ohms.  We therefore
+    use the reliable S-parameter export path and derive all metrics from
+    S11 magnitude.  Full R+jX analysis requires complex S-parameter data
+    (future enhancement via ProjectFile API).
     """
     bands = args["bands"]
     z0 = float(args.get("z0", 50))
@@ -1275,35 +1304,34 @@ async def _handle_analyze_impedance(args: dict, client: CSTClient) -> dict:
     sample_freqs = args.get("sample_frequencies_ghz")
 
     if not client.connected or not client.has_project:
-        # Offline mode: return VBA for Z-parameter extraction
+        # Offline mode: return VBA for S-parameter extraction
         vba = _build_impedance_vba(port)
         return {
             "status": "offline",
             "vba": vba,
             "z0_ohm": z0,
             "message": (
-                "Run this VBA in CST to export impedance data. The real part "
-                "is at '1D Results\\Z-Parameters\\Z{p},{p}' and imaginary at "
-                "'1D Results\\Z-Parameters\\Z{p},{p}_imag'. After export, "
-                "analyze R+jX at each frequency: R should be near {z0}Ω and "
-                "X should be near 0Ω for a good match."
-            ).format(p=port, z0=z0),
+                "Run this VBA in CST to export S11 data from "
+                "'1D Results\\S-Parameters\\S{p},{p}'. After export, "
+                "compute |Γ| = 10^(S11_dB/20), VSWR = (1+|Γ|)/(1-|Γ|). "
+                "VSWR should be ≤ target across each band."
+            ).format(p=port),
             "analysis_guidance": {
-                "r_too_high": (
-                    "R >> Z0: Feed is near voltage maximum. Move feed closer "
-                    "to shorting wall (PIFA) or current maximum."
+                "resonance_below": (
+                    "Resonance below band: shorten the resonant path, "
+                    "reduce patch/slot dimensions."
                 ),
-                "r_too_low": (
-                    "R << Z0: Feed is near current maximum. Move feed further "
-                    "from shorting wall."
+                "resonance_above": (
+                    "Resonance above band: lengthen the resonant path, "
+                    "increase patch/slot dimensions."
                 ),
-                "x_inductive": (
-                    "X > 0 (inductive): Element electrically long. Shorten "
-                    "resonant path or add capacitive loading."
+                "narrow_bandwidth": (
+                    "Resonance in band but too narrow: increase substrate "
+                    "height, widen conductors, add parasitic elements."
                 ),
-                "x_capacitive": (
-                    "X < 0 (capacitive): Element electrically short. Lengthen "
-                    "resonant path or add inductive loading."
+                "no_resonance": (
+                    "No resonance near band: add a dedicated resonant "
+                    "element or coupled resonator for this frequency."
                 ),
             },
             "bands": [
@@ -1312,65 +1340,51 @@ async def _handle_analyze_impedance(args: dict, client: CSTClient) -> dict:
                     "f_low_ghz": b["f_low_ghz"],
                     "f_high_ghz": b["f_high_ghz"],
                     "vswr_target": b.get("vswr_target", 2.5),
+                    "s11_threshold_db": round(
+                        vswr_to_s11(b.get("vswr_target", 2.5)), 2
+                    ),
                 }
                 for b in bands
             ],
         }
 
-    # Connected mode: export both real and imaginary Z-parameter data
+    # Connected mode: export S11 via Python API
     work_dir = client._config.work_dir or tempfile.gettempdir()
-    z_real_file = os.path.join(work_dir, "_z_real_temp.csv").replace("\\", "/")
-    z_imag_file = os.path.join(work_dir, "_z_imag_temp.csv").replace("\\", "/")
+    s11_file = os.path.join(work_dir, "_impedance_s11_temp.csv").replace(
+        "\\", "/"
+    )
 
-    # Export real part
-    tree_real = f"1D Results\\Z-Parameters\\Z{port},{port}"
-    result = client.export_result(tree_real, z_real_file)
+    tree_path = f"1D Results\\S-Parameters\\S{port},{port}"
+    result = client.export_result(tree_path, s11_file)
     if result.get("status") == "error":
-        return {
-            "status": "error",
-            "message": f"Export Z real failed: {result.get('message')}. "
-            "Ensure a simulation has been completed with S-parameter results.",
-        }
-
-    # Export imaginary part
-    tree_imag = f"1D Results\\Z-Parameters\\Z{port},{port}_imag"
-    result = client.export_result(tree_imag, z_imag_file)
-    if result.get("status") == "error":
-        return {
-            "status": "error",
-            "message": f"Export Z imag failed: {result.get('message')}",
-        }
-
-    # Parse both
-    try:
-        freqs_r, z_real = _parse_z_data(z_real_file)
-        freqs_i, z_imag = _parse_z_data(z_imag_file)
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to parse Z data: {e}"}
-    finally:
-        # Clean up temp files
-        for f in (z_real_file, z_imag_file):
-            try:
-                os.remove(f)
-            except OSError:
-                pass
-
-    # Validate alignment
-    if len(freqs_r) != len(freqs_i):
         return {
             "status": "error",
             "message": (
-                f"Z real ({len(freqs_r)} pts) and imag ({len(freqs_i)} pts) "
-                "have different lengths."
+                f"Export S11 failed: {result.get('message')}. "
+                "Ensure a simulation has been completed."
             ),
         }
+
+    # Parse S11 data
+    try:
+        freqs, s11_db = _parse_s11_data(s11_file)
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to parse S11 data: {e}"}
+    finally:
+        try:
+            os.remove(s11_file)
+        except OSError:
+            pass
+
+    # Detect resonances across full frequency range
+    resonances = _find_resonances(freqs, s11_db)
 
     # Analyze each band
     band_results = []
     all_recommendations = []
     for band in bands:
         br = _analyze_impedance_band(
-            freqs_r, z_real, z_imag, band, z0, sample_freqs
+            freqs, s11_db, band, z0, sample_freqs, resonances
         )
         band_results.append(br)
         if "recommendations" in br:
@@ -1385,34 +1399,39 @@ async def _handle_analyze_impedance(args: dict, client: CSTClient) -> dict:
         "overall": overall,
         "z0_ohm": z0,
         "port": port,
-        "frequency_range_ghz": [round(freqs_r[0], 4), round(freqs_r[-1], 4)],
-        "num_points": len(freqs_r),
+        "frequency_range_ghz": [round(freqs[0], 4), round(freqs[-1], 4)],
+        "num_points": len(freqs),
+        "resonances": resonances,
         "bands": band_results,
         "summary_recommendations": all_recommendations,
+        "note": (
+            "Analysis is based on S11 magnitude (dB). VSWR and return loss "
+            "are accurate. Full R+jX impedance requires complex S-parameter "
+            "data (future enhancement)."
+        ),
     }
 
 
 def _build_impedance_vba(port: int) -> str:
-    """Build VBA to export impedance data for offline analysis."""
+    """Build VBA to export S-parameter data for offline impedance analysis.
+
+    Exports S11 magnitude (dB) which can be used to compute |Γ|, VSWR,
+    and return loss.  CST's Z-parameter tree items return dB-like values
+    via ASCIIExport rather than actual impedance in Ohms, so we use the
+    reliable S-parameter export path instead.
+    """
     script = VBAScript()
-    script.add_comment(f"Export Z{port},{port} impedance data for analysis")
-    script.add_comment("Export both real and imaginary parts separately")
+    script.add_comment(f"Export S{port},{port} for impedance match analysis")
+    script.add_comment("Compute: |Gamma| = 10^(S11_dB/20)")
+    script.add_comment("         VSWR = (1 + |Gamma|) / (1 - |Gamma|)")
     script.add_blank()
 
     lines = [
         "Sub Main()",
-        f'  SelectTreeItem "1D Results\\Z-Parameters\\Z{port},{port}"',
+        f'  SelectTreeItem "1D Results\\S-Parameters\\S{port},{port}"',
         "  With ASCIIExport",
         "    .Reset",
-        f'    .FileName "C:/cst_projects/z{port}{port}_real.csv"',
-        '    .SetfileType "csv"',
-        "    .Execute",
-        "  End With",
-        "",
-        f'  SelectTreeItem "1D Results\\Z-Parameters\\Z{port},{port}_imag"',
-        "  With ASCIIExport",
-        "    .Reset",
-        f'    .FileName "C:/cst_projects/z{port}{port}_imag.csv"',
+        f'    .FileName "C:/cst_projects/s{port}{port}_impedance.csv"',
         '    .SetfileType "csv"',
         "    .Execute",
         "  End With",
