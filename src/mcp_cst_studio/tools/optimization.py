@@ -338,13 +338,41 @@ def _compute_cost(
 # ---------------------------------------------------------------------------
 
 
-def _set_params_vba(params: dict[str, float]) -> str:
-    """Build VBA Sub Main() to set multiple parameters and rebuild."""
-    lines = ["Sub Main()"]
+def _set_params_and_solve_vba(params: dict[str, float], export_path: str | None = None, port: int = 1) -> str:
+    """Build raw VBA that sets parameters, solves, and optionally exports.
+
+    Combines everything in a single ``add_to_history`` call.  This is
+    necessary because:
+    - ``RebuildOnParametricChange`` is rejected inside a structure macro
+    - ``StoreParameter`` alone doesn't trigger a rebuild
+    - ``Solver.Start`` triggers the rebuild automatically before solving
+
+    The "Results May Get Incompatible" dialog is handled by the
+    background DialogWatcher.
+    """
+    lines = []
     for name, value in params.items():
-        lines.append(f'  StoreParameter "{name}", "{value}"')
-    lines.append("  RebuildOnParametricChange False, True")
-    lines.append("End Sub")
+        lines.append(f'StoreParameter "{name}", "{value}"')
+    lines.append("Solver.Start")
+    if export_path:
+        safe_path = export_path.replace("\\", "/")
+        tree_path = f"1D Results\\S-Parameters\\S{port},{port}"
+        lines.append("")
+        lines.append(f'SelectTreeItem "{tree_path}"')
+        lines.append("With ASCIIExport")
+        lines.append("  .Reset")
+        lines.append(f'  .FileName "{safe_path}"')
+        lines.append('  .SetfileType "csv"')
+        lines.append("  .Execute")
+        lines.append("End With")
+    return "\n".join(lines)
+
+
+def _set_params_vba(params: dict[str, float]) -> str:
+    """Build raw VBA for just StoreParameter calls (for final application)."""
+    lines = []
+    for name, value in params.items():
+        lines.append(f'StoreParameter "{name}", "{value}"')
     return "\n".join(lines)
 
 
@@ -417,12 +445,13 @@ def _build_initial_simplex(
     for i in range(n):
         vertex = list(x0)
         span = bounds[i][1] - bounds[i][0]
-        delta = 0.10 * span  # 10% of range
-        # Perturb upward if possible, else downward
-        if x0[i] + delta <= bounds[i][1]:
-            vertex[i] = x0[i] + delta
-        else:
+        delta = 0.25 * span  # 25% of range for meaningful exploration
+        # Perturb away from nearest bound to maximise exploration
+        mid = (bounds[i][0] + bounds[i][1]) / 2.0
+        if x0[i] >= mid:
             vertex[i] = x0[i] - delta
+        else:
+            vertex[i] = x0[i] + delta
         # Clamp to bounds
         vertex[i] = max(bounds[i][0], min(bounds[i][1], vertex[i]))
         simplex.append(vertex)
@@ -492,10 +521,11 @@ async def _optimization_loop(
 
     For each simplex vertex evaluation:
     1. Set parameters via execute_vba_silent (no history entry)
-    2. Run solver + export S11 via execute_vba/add_to_history
-       (Solver.Start and ASCIIExport require model3d context,
-        they cannot run in schematic.execute_vba_code)
-    3. Parse S11 and compute cost
+    2. Run solver via Python API run_solver() (no history entry)
+    3. Export S11 via Python API export_result() (no history entry)
+    4. Parse S11 and compute cost
+
+    Only the final best-parameter application uses add_to_history.
     """
     n = len(params_spec)
     param_names = [p["name"] for p in params_spec]
@@ -506,6 +536,12 @@ async def _optimization_loop(
     simplex = _build_initial_simplex(x0, bounds)
     costs: list[float] = []
     history: list[dict] = []
+
+    # Delete any stale results up front to prevent dialog popups
+    client.delete_results()
+
+    # Start dialog watcher to auto-dismiss any popups during the loop
+    client.start_dialog_watcher()
 
     # Temp file for S11 export
     work_dir = client._config.work_dir or tempfile.gettempdir()
@@ -520,25 +556,13 @@ async def _optimization_loop(
 
         # Clamp to bounds
         x = _clamp_to_bounds(x, bounds)
-
-        # Set parameters (silent — no history entry)
         params = dict(zip(param_names, x))
-        result = client.execute_vba_silent(_set_params_vba(params))
-        if result.get("status") == "error":
-            logger.error("Failed to set params: %s", result.get("message"))
-            return 100.0, []
 
-        # Run solver via Python API (no history entry)
-        result = client.run_solver()
+        # Use Python API: StoreParameter → DeleteResults → Rebuild → solve → export
+        # This avoids history bloat and ensures the geometry actually rebuilds.
+        result = client.set_params_rebuild_solve(params, export_path=s11_file, port=port)
         if result.get("status") == "error":
-            logger.error("Solver failed: %s", result.get("message"))
-            return 100.0, []
-
-        # Export S11 via Python API (no history entry)
-        tree_path = f"1D Results\\S-Parameters\\S{port},{port}"
-        result = client.export_result(tree_path, s11_file)
-        if result.get("status") == "error":
-            logger.error("Export failed: %s", result.get("message"))
+            logger.error("Solve iteration failed: %s", result.get("message"))
             return 100.0, []
 
         # Parse and evaluate
@@ -649,14 +673,13 @@ async def _optimization_loop(
             logger.info("All bands pass — converged at iteration %d", iteration)
             break
 
-    # Apply best parameters permanently via history
-    final_vba = _set_params_vba(best_params).replace("Sub Main()\n", "").replace("\nEnd Sub", "")
-    client.execute_vba(final_vba, history_label="optimization_best_params")
+    # Apply best parameters + final solve + export
+    # Use add_to_history for the final application so it's visible in the project
+    final_params_vba = _set_params_vba(best_params)
+    client.execute_vba(final_params_vba, history_label="optimization_best_params")
 
-    # Final solve + export via Python API (no history)
-    client.run_solver()
-    tree_path = f"1D Results\\S-Parameters\\S{port},{port}"
-    client.export_result(tree_path, s11_file)
+    # Then do a proper rebuild + solve + export via Python API
+    client.set_params_rebuild_solve(best_params, export_path=s11_file, port=port)
 
     # Final evaluation
     try:
@@ -674,9 +697,13 @@ async def _optimization_loop(
     except OSError:
         pass
 
+    # Stop dialog watcher and collect its log
+    watcher_result = client.stop_dialog_watcher()
+    dialog_log = watcher_result.get("log", [])
+
     overall = "PASS" if final_cost == 0.0 else "FAIL"
 
-    return {
+    result: dict = {
         "status": "optimized",
         "overall": overall,
         "best_cost": round(best_cost, 4),
@@ -687,6 +714,11 @@ async def _optimization_loop(
         "resonances": resonances,
         "history": history,
     }
+    if dialog_log:
+        result["dismissed_dialogs"] = len(dialog_log)
+        result["dialog_log"] = dialog_log
+
+    return result
 
 
 # ---------------------------------------------------------------------------

@@ -81,6 +81,7 @@ def register_all_tools(server: Server, client: CSTClient) -> None:
     from mcp_cst_studio.tools.antenna_templates import register_antenna_template_tools
     from mcp_cst_studio.tools.boolean import register_boolean_tools
     from mcp_cst_studio.tools.boundaries import register_boundary_tools
+    from mcp_cst_studio.tools.diagnostics import register_diagnostics_tools
     from mcp_cst_studio.tools.geometry import register_geometry_tools
     from mcp_cst_studio.tools.import_export import register_import_export_tools
     from mcp_cst_studio.tools.materials import register_material_tools
@@ -110,6 +111,7 @@ def register_all_tools(server: Server, client: CSTClient) -> None:
     register_import_export_tools(server, client)
     register_parameter_tools(server, client)
     register_optimization_tools(server, client)
+    register_diagnostics_tools(server, client)
     register_antenna_template_tools(server, client)
     register_pcb_tools(server, client)
     register_vba_tools(server, client)
