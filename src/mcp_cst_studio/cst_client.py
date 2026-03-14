@@ -199,14 +199,31 @@ class CSTClient:
 
         In connected mode: executes via ``model3d.add_to_history()`` which
         adds the VBA macro to the project history and runs it immediately.
+        A background :class:`DialogWatcher` runs during execution to
+        auto-dismiss any CST modal dialogs (error, property, frequency-range)
+        that would otherwise block the COM call indefinitely.
+
         In offline mode: returns the VBA script for manual execution.
         """
         if self.connected and self._project is not None:
             try:
                 CSTClient._history_counter += 1
                 label = history_label or f"mcp_action_{CSTClient._history_counter}"
-                result = self._project.model3d.add_to_history(label, vba_code)
-                return {"status": "executed", "result": str(result) if result else "ok"}
+                watcher = DialogWatcher(poll_interval=0.5)
+                watcher.start()
+                try:
+                    result = self._project.model3d.add_to_history(label, vba_code)
+                finally:
+                    watcher.stop()
+                response: dict = {
+                    "status": "executed",
+                    "result": str(result) if result else "ok",
+                }
+                log = watcher.get_log()
+                if log:
+                    response["dialogs_dismissed"] = len(log)
+                    response["dialog_log"] = log
+                return response
             except Exception as e:
                 return {"status": "error", "message": str(e), "vba": vba_code}
 
@@ -224,12 +241,25 @@ class CSTClient:
         Ideal for optimization loops where dozens of iterations would
         otherwise bloat the history list.
 
+        A background :class:`DialogWatcher` runs during execution to
+        auto-dismiss any CST modal dialogs that would block the COM call.
+
         In offline mode: returns the VBA script for manual execution.
         """
         if self.connected and self._project is not None:
             try:
-                self._project.schematic.execute_vba_code(vba_code)
-                return {"status": "executed"}
+                watcher = DialogWatcher(poll_interval=0.5)
+                watcher.start()
+                try:
+                    self._project.schematic.execute_vba_code(vba_code)
+                finally:
+                    watcher.stop()
+                response: dict = {"status": "executed"}
+                log = watcher.get_log()
+                if log:
+                    response["dialogs_dismissed"] = len(log)
+                    response["dialog_log"] = log
+                return response
             except Exception as e:
                 return {"status": "error", "message": str(e), "vba": vba_code}
 
