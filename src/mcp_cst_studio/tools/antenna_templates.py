@@ -491,6 +491,25 @@ def _build_substrate_material(name: str, eps_r: float, tan_d: float) -> VBABuild
     )
 
 
+def _store_design_parameters(params: dict[str, float]) -> str:
+    """Generate VBA StoreParameter calls for antenna design parameters.
+
+    Stores the computed dimensions as CST project parameters, making them
+    visible in CST's parameter list and available for parametric sweeps
+    or optimization via StoreParameter + DeleteResults + Rebuild.
+    """
+    lines = ["' --- Design Parameters ---"]
+    for name, value in params.items():
+        # Format numbers without scientific notation for CST compatibility
+        if isinstance(value, float):
+            val_str = f"{value:.6g}"
+        else:
+            val_str = str(value)
+        lines.append(f'StoreParameter "{name}", "{val_str}"')
+    lines.append("")
+    return "\n".join(lines)
+
+
 def _build_substrate_material_block(name: str, eps_r: float, tan_d: float) -> str:
     """Build a complete material definition block for a dielectric substrate."""
     vba = VBABuilder("Material")
@@ -649,6 +668,19 @@ def _build_patch_antenna(args: dict) -> str:
     # Frequency range
     script.add_block(_build_frequency_range(f_min, f_max))
 
+    # Store design parameters in CST for parametric sweeps/optimization
+    script.add_raw(_store_design_parameters({
+        "patch_W": round(W, 4),
+        "patch_L": round(L, 4),
+        "sub_h": round(h, 4),
+        "eps_r": eps_r,
+        "feed_w": round(feed_w, 4),
+        "inset_depth": round(inset_depth, 4),
+        "inset_gap": round(inset_gap, 4),
+        "gnd_x": round(gnd_x, 4),
+        "gnd_y": round(gnd_y, 4),
+    }))
+
     # Substrate material
     script.add_raw(_build_substrate_material_block("Substrate_FR4", eps_r, tan_d))
 
@@ -706,6 +738,7 @@ def _build_patch_antenna(args: dict) -> str:
             .call("Reset")
             .set_number("PortNumber", 1)
             .set("Label", "")
+            .set("Coordinates", "Free")
             .set("Orientation", "ymin")
             .set_double("Xrange", -feed_w * 3, feed_w * 3)
             .set_double("Yrange", -gnd_y / 2, -gnd_y / 2)
@@ -728,6 +761,7 @@ def _build_patch_antenna(args: dict) -> str:
             .call("Reset")
             .set_number("PortNumber", 1)
             .set("Label", "")
+            .set("Coordinates", "Free")
             .set("Orientation", "ymin")
             .set_double("Xrange", -feed_w * 3, feed_w * 3)
             .set_double("Yrange", -gnd_y / 2, -gnd_y / 2)
@@ -1141,6 +1175,7 @@ def _build_horn_antenna(args: dict) -> str:
         .call("Reset")
         .set_number("PortNumber", 1)
         .set("Label", "")
+        .set("Coordinates", "Free")
         .set("Orientation", "zmin")
         .set_double("Xrange", -a_wg / 2, a_wg / 2)
         .set_double("Yrange", -b_wg / 2, b_wg / 2)
