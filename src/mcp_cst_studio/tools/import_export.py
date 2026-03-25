@@ -7,7 +7,7 @@ exporting models, and handling Touchstone and far-field data files.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from mcp.types import TextContent, Tool
 
@@ -335,7 +335,7 @@ def _build_export_farfield(args: dict) -> str:
 # Dispatch table
 # ---------------------------------------------------------------------------
 
-_HANDLERS: dict[str, callable] = {
+_HANDLERS: dict[str, Callable[..., str]] = {
     "cst_import_cad": _build_import_cad,
     "cst_export_cad": _build_export_cad,
     "cst_import_touchstone": _build_import_touchstone,

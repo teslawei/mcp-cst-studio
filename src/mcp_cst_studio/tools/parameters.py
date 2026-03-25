@@ -7,7 +7,7 @@ sweeps, and configuring optimizations in CST Studio.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from mcp.types import TextContent, Tool
 
@@ -934,7 +934,7 @@ def _build_parameter_interpolation(args: dict) -> str:
 # Dispatch table
 # ---------------------------------------------------------------------------
 
-_HANDLERS: dict[str, callable] = {
+_HANDLERS: dict[str, Callable[..., str]] = {
     "cst_set_parameter": _build_set_parameter,
     "cst_get_parameter": _build_get_parameter,
     "cst_list_parameters": _build_list_parameters,

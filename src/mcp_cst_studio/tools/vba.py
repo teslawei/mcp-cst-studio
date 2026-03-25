@@ -247,7 +247,7 @@ def _handle_list_vba_objects(args: dict) -> dict:
     # Return all categories with their objects
     result = {"status": "ok", "categories": {}}
     for cat, objects in ref.items():
-        result["categories"][cat] = {
+        result["categories"][cat] = {  # type: ignore[index]
             name: data.get("description", "")
             for name, data in objects.items()
         }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import enum
 import re
 
 # VBA commands that could be used for injection attacks
@@ -133,7 +134,7 @@ def validate_port_number(port: int) -> int:
     return port
 
 
-def validate_enum_value(value: str, enum_class: type, label: str = "value") -> str:
+def validate_enum_value(value: str, enum_class: type[enum.Enum], label: str = "value") -> str:
     """Validate that a string matches an enum value."""
     valid = [e.value for e in enum_class]
     if value not in valid:

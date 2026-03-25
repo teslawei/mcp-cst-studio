@@ -13,7 +13,7 @@ pair so the MCP protocol sees all tools in one list.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Awaitable, Callable
+from typing import TYPE_CHECKING, Awaitable, Callable, cast
 
 from mcp.types import TextContent, Tool
 
@@ -57,8 +57,9 @@ class ToolRegistry:
         for tool in tools:
             self._tools.append(tool)
             # Bind *client* at registration time so each call gets the right ref
-            self._handlers[tool.name] = (
-                lambda name, args, _h=handle_fn, _c=client: _h(name, args, _c)
+            self._handlers[tool.name] = cast(
+                ToolHandler,
+                lambda name, args, _h=handle_fn, _c=client: _h(name, args, _c),
             )
 
     # -- internal: wire into the MCP server --
