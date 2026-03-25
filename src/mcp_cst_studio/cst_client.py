@@ -105,6 +105,17 @@ class CSTClient:
             self._config.connected = False
         return {"status": "disconnected"}
 
+    # Maps project type codes to DesignEnvironment factory methods
+    _PROJECT_FACTORIES: dict[str, str] = {
+        "MWS": "new_mws",
+        "EMS": "new_ems",
+        "PS": "new_ps",
+        "MPS": "new_mps",
+        "CS": "new_cs",
+        "DS": "new_ds",
+        "PCB": "new_pcbs",
+    }
+
     def new_project(self, path: str, project_type: str = "MWS") -> dict:
         """Create a new CST project.
 
@@ -114,7 +125,11 @@ class CSTClient:
         """
         if self.connected and self._de is not None:
             try:
-                self._project = self._de.new_mws()
+                factory_name = self._PROJECT_FACTORIES.get(
+                    project_type.upper(), "new_mws"
+                )
+                factory = getattr(self._de, factory_name, self._de.new_mws)
+                self._project = factory()
                 # Start watcher to handle potential save dialog
                 self.start_dialog_watcher()
                 try:
@@ -202,6 +217,7 @@ class CSTClient:
         A background :class:`DialogWatcher` runs during execution to
         auto-dismiss any CST modal dialogs (error, property, frequency-range)
         that would otherwise block the COM call indefinitely.
+        Falls back to the schematic interface for Design Studio projects.
 
         In offline mode: returns the VBA script for manual execution.
         """
@@ -224,6 +240,17 @@ class CSTClient:
                     response["dialogs_dismissed"] = len(log)
                     response["dialog_log"] = log
                 return response
+            except AttributeError:
+                # DS/CS projects may only have the model3d interface;
+                # fall back to the schematic interface
+                try:
+                    result = self._project.schematic.execute_vba_code(vba_code)
+                    return {
+                        "status": "executed",
+                        "result": str(result) if result else "ok",
+                    }
+                except Exception as e:
+                    return {"status": "error", "message": str(e), "vba": vba_code}
             except Exception as e:
                 return {"status": "error", "message": str(e), "vba": vba_code}
 

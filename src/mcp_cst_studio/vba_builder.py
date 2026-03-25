@@ -7,12 +7,22 @@ VBABuilder methods which handle escaping and validation.
 
 from __future__ import annotations
 
+import re
+
 from mcp_cst_studio.validators import validate_name, validate_vba_input
+
+_DANGEROUS_IN_STRINGS = re.compile(
+    r'"\s*[&+]\s*(Shell|CreateObject|GetObject)', re.IGNORECASE
+)
 
 
 def _escape_vba_string(value: str) -> str:
     """Escape a string for safe embedding in VBA."""
-    return value.replace('"', '""')
+    escaped = value.replace('"', '""')
+    # Block VBA string concatenation injection attempts
+    if _DANGEROUS_IN_STRINGS.search(f'"{escaped}"'):
+        raise ValueError(f"Potentially dangerous pattern in VBA string value: {value!r}")
+    return escaped
 
 
 def _format_number(value: float) -> str:
