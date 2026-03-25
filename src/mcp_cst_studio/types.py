@@ -79,6 +79,11 @@ class MaterialType(str, Enum):
     CORRUGATED_WALL = "Corrugated wall"
     OHMIC_SHEET = "Ohmic sheet"
     TENSOR_FORMULA = "Tensor formula"
+    DEBYE = "Debye"
+    LORENTZ = "Lorentz"
+    DRUDE = "Drude"
+    FERRITE = "Ferrite"
+    COLE_COLE = "Cole-Cole"
 
 
 class BooleanOp(str, Enum):
@@ -255,3 +260,26 @@ class FarfieldResult:
     beam_width_h: float = 0.0
     front_to_back_db: float = 0.0
     polarization: str = "linear"
+
+
+@dataclass
+class GroupDelayResult:
+    frequency_ghz: list[float] = field(default_factory=list)
+    group_delay_ns: list[float] = field(default_factory=list)
+
+
+@dataclass
+class PatternCutResult:
+    angle_deg: list[float] = field(default_factory=list)
+    gain_dbi: list[float] = field(default_factory=list)
+    plane: str = "E"
+    frequency_ghz: float = 0.0
+
+
+@dataclass
+class EfficiencyBreakdown:
+    radiation_efficiency: float = 0.0
+    total_efficiency: float = 0.0
+    mismatch_loss_db: float = 0.0
+    conductor_loss_db: float = 0.0
+    dielectric_loss_db: float = 0.0

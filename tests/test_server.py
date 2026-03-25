@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 
 import pytest
 
@@ -91,15 +90,15 @@ class TestToolRegistryAddModule:
 # ---------------------------------------------------------------------------
 
 class TestRegisterAllTools:
-    def test_register_all_tools_registers_107_tools(self, offline_client: CSTClient):
-        """register_all_tools() must register exactly 107 tools."""
+    def test_register_all_tools_registers_162_tools(self, offline_client: CSTClient):
+        """register_all_tools() must register exactly 162 tools."""
         from mcp.server import Server
         from mcp_cst_studio.tools import register_all_tools, _registry
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
 
-        assert len(_registry._tools) == 107
+        assert len(_registry._tools) == 162
 
     def test_register_all_tools_clears_before_registering(self, offline_client: CSTClient):
         """Calling register_all_tools twice must not double the count."""
@@ -114,7 +113,7 @@ class TestRegisterAllTools:
         register_all_tools(server2, offline_client)
         second_count = len(_registry._tools)
 
-        assert first_count == second_count == 107
+        assert first_count == second_count == 162
 
     def test_all_tool_names_are_unique(self, offline_client: CSTClient):
         """No two tools may share the same name."""
@@ -174,7 +173,7 @@ class TestToolNames:
 
         names = [tool.name for tool in _registry._tools]
         assert isinstance(names, list)
-        assert len(names) == 107
+        assert len(names) == 162
 
     def test_tool_names_contain_expected_entries(self, offline_client: CSTClient):
         from mcp.server import Server

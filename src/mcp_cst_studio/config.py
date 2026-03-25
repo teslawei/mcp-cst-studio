@@ -12,6 +12,7 @@ class CSTConfig:
     work_dir: str = ""
     version: str = "2026"
     connected: bool = False
+    log_level: str = "INFO"
 
     @classmethod
     def from_env(cls) -> CSTConfig:
@@ -30,11 +31,14 @@ class CSTConfig:
             except ImportError:
                 pass
 
+        log_level = os.environ.get("CST_LOG_LEVEL", "INFO")
+
         return cls(
             cst_path=cst_path,
             work_dir=work_dir,
             version=version,
             connected=connected,
+            log_level=log_level,
         )
 
 

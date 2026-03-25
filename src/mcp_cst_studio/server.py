@@ -36,7 +36,10 @@ async def run_server() -> None:
 
 def main() -> None:
     """Entry point."""
-    logging.basicConfig(level=logging.INFO)
+    import os
+
+    level = os.environ.get("CST_LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(level=getattr(logging, level, logging.INFO))
     asyncio.run(run_server())
 
 
