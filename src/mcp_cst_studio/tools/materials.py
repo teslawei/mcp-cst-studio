@@ -9,7 +9,12 @@ from typing import TYPE_CHECKING
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.validators import validate_name, validate_non_negative, validate_range
+from mcp_cst_studio.validators import (
+    validate_name,
+    validate_non_negative,
+    validate_positive,
+    validate_range,
+)
 from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
 
 if TYPE_CHECKING:
@@ -245,6 +250,249 @@ TOOLS: list[Tool] = [
             "required": ["name"],
         },
     ),
+    Tool(
+        name="cst_create_debye_material",
+        description=(
+            "Create a frequency-dependent dielectric material using the Debye "
+            "relaxation model. Models polar dielectrics where permittivity "
+            "decreases with frequency: eps(w) = eps_inf + delta_eps/(1 + jw*tau). "
+            "Used for biological tissues, water, polymers, and soil."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Material name (e.g. 'Wet Soil')",
+                },
+                "epsilon_inf": {
+                    "type": "number",
+                    "description": "High-frequency (optical) permittivity limit",
+                },
+                "delta_epsilon": {
+                    "type": "number",
+                    "description": "Static permittivity increment (eps_s - eps_inf)",
+                },
+                "relaxation_time_ps": {
+                    "type": "number",
+                    "description": "Relaxation time in picoseconds",
+                },
+                "order": {
+                    "type": "integer",
+                    "description": "Debye model order (1 or 2)",
+                    "default": 1,
+                    "enum": [1, 2],
+                },
+                "tan_d": {
+                    "type": "number",
+                    "description": "Optional static loss tangent",
+                },
+            },
+            "required": ["name", "epsilon_inf", "delta_epsilon", "relaxation_time_ps"],
+        },
+    ),
+    Tool(
+        name="cst_create_lorentz_material",
+        description=(
+            "Create a Lorentz oscillator dispersive material. Models resonant "
+            "dielectric behaviour near absorption bands: eps(w) = eps_inf + "
+            "delta_eps * w0^2 / (w0^2 - w^2 + j*gamma*w). Used for glass, "
+            "crystals, and optical materials."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Material name (e.g. 'Optical Glass')",
+                },
+                "epsilon_inf": {
+                    "type": "number",
+                    "description": "High-frequency permittivity limit",
+                },
+                "delta_epsilon": {
+                    "type": "number",
+                    "description": "Oscillator strength (permittivity increment)",
+                },
+                "resonant_freq_ghz": {
+                    "type": "number",
+                    "description": "Resonant frequency in GHz",
+                },
+                "damping_freq_ghz": {
+                    "type": "number",
+                    "description": "Damping (collision) frequency in GHz",
+                },
+            },
+            "required": [
+                "name", "epsilon_inf", "delta_epsilon",
+                "resonant_freq_ghz", "damping_freq_ghz",
+            ],
+        },
+    ),
+    Tool(
+        name="cst_create_drude_material",
+        description=(
+            "Create a Drude metal model material for plasmonic and metamaterial "
+            "simulations. Models free-electron metals: eps(w) = 1 - wp^2 / "
+            "(w^2 + j*gamma*w). Used for gold, silver, aluminium in optical/THz "
+            "frequency ranges."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Material name (e.g. 'Drude Gold')",
+                },
+                "plasma_freq_ghz": {
+                    "type": "number",
+                    "description": "Plasma frequency in GHz",
+                },
+                "collision_freq_ghz": {
+                    "type": "number",
+                    "description": "Collision (damping) frequency in GHz",
+                },
+            },
+            "required": ["name", "plasma_freq_ghz", "collision_freq_ghz"],
+        },
+    ),
+    Tool(
+        name="cst_create_ferrite_material",
+        description=(
+            "Create a ferrite material with gyrotropic permeability tensor "
+            "(Polder model). Essential for circulators, isolators, and phase "
+            "shifters. The Polder tensor describes the anisotropic magnetic "
+            "response of a magnetised ferrite (Pozar Ch. 9.1)."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Material name (e.g. 'YIG Ferrite')",
+                },
+                "epsilon_r": {
+                    "type": "number",
+                    "description": "Relative permittivity of the ferrite",
+                },
+                "saturation_magnetization_ka_m": {
+                    "type": "number",
+                    "description": "Saturation magnetisation in kA/m (4piMs)",
+                },
+                "linewidth_oe": {
+                    "type": "number",
+                    "description": "Ferromagnetic resonance linewidth in Oersted",
+                },
+                "applied_field_ka_m": {
+                    "type": "number",
+                    "description": "Applied DC bias magnetic field in kA/m",
+                    "default": 0,
+                },
+                "field_direction": {
+                    "type": "string",
+                    "description": "Direction of the applied bias field",
+                    "enum": ["x", "y", "z"],
+                    "default": "z",
+                },
+            },
+            "required": [
+                "name", "epsilon_r",
+                "saturation_magnetization_ka_m", "linewidth_oe",
+            ],
+        },
+    ),
+    Tool(
+        name="cst_create_temperature_dependent_material",
+        description=(
+            "Create a material with temperature-dependent electromagnetic "
+            "properties. Specify base properties and temperature coefficients "
+            "for thermal-electromagnetic co-simulation."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Material name (e.g. 'Thermal FR-4')",
+                },
+                "epsilon_r": {
+                    "type": "number",
+                    "description": "Relative permittivity at reference temperature",
+                },
+                "conductivity": {
+                    "type": "number",
+                    "description": "Electric conductivity in S/m at reference temperature",
+                },
+                "temp_coeff_epsilon_ppm_k": {
+                    "type": "number",
+                    "description": "Temperature coefficient of permittivity in ppm/K",
+                    "default": 0,
+                },
+                "temp_coeff_conductivity": {
+                    "type": "number",
+                    "description": "Temperature coefficient of conductivity (fractional per K)",
+                    "default": 0,
+                },
+                "reference_temp_c": {
+                    "type": "number",
+                    "description": "Reference temperature in degrees Celsius",
+                    "default": 25,
+                },
+            },
+            "required": ["name", "epsilon_r", "conductivity"],
+        },
+    ),
+    Tool(
+        name="cst_create_cole_cole_material",
+        description=(
+            "Create a Cole-Cole dispersive material. Generalisation of the Debye "
+            "model with a distribution parameter alpha (0-1) that broadens the "
+            "relaxation spectrum. Used for biological tissues, soil, and "
+            "broadband absorbers."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Material name (e.g. 'Muscle Tissue')",
+                },
+                "epsilon_inf": {
+                    "type": "number",
+                    "description": "High-frequency (optical) permittivity limit",
+                },
+                "delta_epsilon": {
+                    "type": "number",
+                    "description": "Static permittivity increment (eps_s - eps_inf)",
+                },
+                "relaxation_time_ps": {
+                    "type": "number",
+                    "description": "Relaxation time in picoseconds",
+                },
+                "alpha": {
+                    "type": "number",
+                    "description": "Distribution parameter (0 = Debye, 1 = max broadening)",
+                },
+            },
+            "required": [
+                "name", "epsilon_inf", "delta_epsilon",
+                "relaxation_time_ps", "alpha",
+            ],
+        },
+    ),
+    Tool(
+        name="cst_list_ferrite_materials",
+        description=(
+            "List available ferrite materials from the bundled database. "
+            "Returns name, permittivity, saturation magnetisation, linewidth, "
+            "loss tangent, maximum frequency, and usage notes for each ferrite."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    ),
 ]
 
 # ---------------------------------------------------------------------------
@@ -324,6 +572,27 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
 
         if name == "cst_delete_material":
             return _handle_delete_material(arguments, client)
+
+        if name == "cst_create_debye_material":
+            return _handle_create_debye_material(arguments, client)
+
+        if name == "cst_create_lorentz_material":
+            return _handle_create_lorentz_material(arguments, client)
+
+        if name == "cst_create_drude_material":
+            return _handle_create_drude_material(arguments, client)
+
+        if name == "cst_create_ferrite_material":
+            return _handle_create_ferrite_material(arguments, client)
+
+        if name == "cst_create_temperature_dependent_material":
+            return _handle_create_temperature_dependent_material(arguments, client)
+
+        if name == "cst_create_cole_cole_material":
+            return _handle_create_cole_cole_material(arguments, client)
+
+        if name == "cst_list_ferrite_materials":
+            return _handle_list_ferrite_materials(arguments)
 
         return [TextContent(type="text", text=json.dumps({
             "status": "error", "message": f"Unknown material tool: {name}",
@@ -605,6 +874,324 @@ def _handle_delete_material(args: dict, client: CSTClient) -> list[TextContent]:
             "material": mat_name,
             "vba": vba,
             **result,
+        }, indent=2),
+    )]
+
+
+# ---------------------------------------------------------------------------
+# Advanced / dispersive material handlers
+# ---------------------------------------------------------------------------
+
+def _handle_create_debye_material(args: dict, client: CSTClient) -> list[TextContent]:
+    mat_name = validate_name(args["name"], "material name")
+    epsilon_inf = float(args["epsilon_inf"])
+    delta_epsilon = float(args["delta_epsilon"])
+    relaxation_time_ps = float(args["relaxation_time_ps"])
+    order = int(args.get("order", 1))
+    tan_d = float(args["tan_d"]) if "tan_d" in args else None
+
+    validate_positive(epsilon_inf, "epsilon_inf")
+    validate_positive(delta_epsilon, "delta_epsilon")
+    validate_positive(relaxation_time_ps, "relaxation_time_ps")
+    if order not in (1, 2):
+        raise ValueError("order must be 1 or 2")
+    if tan_d is not None:
+        validate_non_negative(tan_d, "tan_d")
+
+    model_name = f"Debye {order}st Order" if order == 1 else "Debye 2nd Order"
+
+    builder = (
+        VBABuilder("Material")
+        .call("Reset")
+        .set("Name", mat_name)
+        .set("Type", "Normal")
+        .set("SetDispersionModelEps", model_name)
+        .set_number("EpsilonInfinity", epsilon_inf)
+        .set_number("DispEps", delta_epsilon)
+        .set_number("DispCoeff0Eps", relaxation_time_ps)
+    )
+    if tan_d is not None:
+        builder.set_number("TanDe", tan_d)
+    builder.call("Create")
+    vba = builder.build()
+
+    result = client.execute_vba(vba)
+    return [TextContent(
+        type="text",
+        text=json.dumps({
+            "tool": "cst_create_debye_material",
+            "material": mat_name,
+            "properties": {
+                "model": model_name,
+                "epsilon_inf": epsilon_inf,
+                "delta_epsilon": delta_epsilon,
+                "relaxation_time_ps": relaxation_time_ps,
+                "order": order,
+                **({"tan_d": tan_d} if tan_d is not None else {}),
+            },
+            "vba": vba,
+            **result,
+        }, indent=2),
+    )]
+
+
+def _handle_create_lorentz_material(args: dict, client: CSTClient) -> list[TextContent]:
+    mat_name = validate_name(args["name"], "material name")
+    epsilon_inf = float(args["epsilon_inf"])
+    delta_epsilon = float(args["delta_epsilon"])
+    resonant_freq_ghz = float(args["resonant_freq_ghz"])
+    damping_freq_ghz = float(args["damping_freq_ghz"])
+
+    validate_positive(epsilon_inf, "epsilon_inf")
+    validate_positive(delta_epsilon, "delta_epsilon")
+    validate_positive(resonant_freq_ghz, "resonant_freq_ghz")
+    validate_positive(damping_freq_ghz, "damping_freq_ghz")
+
+    vba = (
+        VBABuilder("Material")
+        .call("Reset")
+        .set("Name", mat_name)
+        .set("Type", "Normal")
+        .set("SetDispersionModelEps", "Lorentz")
+        .set_number("LorentzEpsInf", epsilon_inf)
+        .set_number("LorentzDispEps", delta_epsilon)
+        .set_number("LorentzFreqEps", resonant_freq_ghz)
+        .set_number("LorentzGamma0Eps", damping_freq_ghz)
+        .call("Create")
+        .build()
+    )
+
+    result = client.execute_vba(vba)
+    return [TextContent(
+        type="text",
+        text=json.dumps({
+            "tool": "cst_create_lorentz_material",
+            "material": mat_name,
+            "properties": {
+                "model": "Lorentz",
+                "epsilon_inf": epsilon_inf,
+                "delta_epsilon": delta_epsilon,
+                "resonant_freq_ghz": resonant_freq_ghz,
+                "damping_freq_ghz": damping_freq_ghz,
+            },
+            "vba": vba,
+            **result,
+        }, indent=2),
+    )]
+
+
+def _handle_create_drude_material(args: dict, client: CSTClient) -> list[TextContent]:
+    mat_name = validate_name(args["name"], "material name")
+    plasma_freq_ghz = float(args["plasma_freq_ghz"])
+    collision_freq_ghz = float(args["collision_freq_ghz"])
+
+    validate_positive(plasma_freq_ghz, "plasma_freq_ghz")
+    validate_positive(collision_freq_ghz, "collision_freq_ghz")
+
+    vba = (
+        VBABuilder("Material")
+        .call("Reset")
+        .set("Name", mat_name)
+        .set("Type", "Normal")
+        .set("SetDispersionModelEps", "Drude")
+        .set_number("DrudeFreqEps", plasma_freq_ghz)
+        .set_number("DrudeGammaEps", collision_freq_ghz)
+        .call("Create")
+        .build()
+    )
+
+    result = client.execute_vba(vba)
+    return [TextContent(
+        type="text",
+        text=json.dumps({
+            "tool": "cst_create_drude_material",
+            "material": mat_name,
+            "properties": {
+                "model": "Drude",
+                "plasma_freq_ghz": plasma_freq_ghz,
+                "collision_freq_ghz": collision_freq_ghz,
+            },
+            "vba": vba,
+            **result,
+        }, indent=2),
+    )]
+
+
+def _handle_create_ferrite_material(args: dict, client: CSTClient) -> list[TextContent]:
+    mat_name = validate_name(args["name"], "material name")
+    epsilon_r = float(args["epsilon_r"])
+    sat_mag = float(args["saturation_magnetization_ka_m"])
+    linewidth = float(args["linewidth_oe"])
+    applied_field = float(args.get("applied_field_ka_m", 0))
+    field_direction = args.get("field_direction", "z")
+
+    validate_positive(epsilon_r, "epsilon_r")
+    validate_positive(sat_mag, "saturation_magnetization_ka_m")
+    validate_positive(linewidth, "linewidth_oe")
+    validate_non_negative(applied_field, "applied_field_ka_m")
+    if field_direction not in ("x", "y", "z"):
+        raise ValueError("field_direction must be 'x', 'y', or 'z'")
+
+    script = VBAScript()
+    script.add_comment(f"Create ferrite material: {mat_name} (Polder tensor model)")
+
+    builder = (
+        VBABuilder("Material")
+        .call("Reset")
+        .set("Name", mat_name)
+        .set("Type", "Normal")
+        .set_number("Epsilon", epsilon_r)
+        .set("SetGyroMagneticModel", "Saturation Magnetization")
+        .set_number("GyroMagneticSaturation", sat_mag)
+        .set_number("GyroMagneticLineWidth", linewidth)
+        .set_number("GyroMagneticAppliedField", applied_field)
+        .set("GyroMagneticFieldDirection", field_direction)
+        .call("Create")
+    )
+    script.add_block(builder)
+    vba = script.build()
+
+    result = client.execute_vba(vba)
+    return [TextContent(
+        type="text",
+        text=json.dumps({
+            "tool": "cst_create_ferrite_material",
+            "material": mat_name,
+            "properties": {
+                "model": "Ferrite (Polder tensor)",
+                "epsilon_r": epsilon_r,
+                "saturation_magnetization_ka_m": sat_mag,
+                "linewidth_oe": linewidth,
+                "applied_field_ka_m": applied_field,
+                "field_direction": field_direction,
+            },
+            "vba": vba,
+            **result,
+        }, indent=2),
+    )]
+
+
+def _handle_create_temperature_dependent_material(
+    args: dict, client: CSTClient,
+) -> list[TextContent]:
+    mat_name = validate_name(args["name"], "material name")
+    epsilon_r = float(args["epsilon_r"])
+    conductivity = float(args["conductivity"])
+    tc_epsilon = float(args.get("temp_coeff_epsilon_ppm_k", 0))
+    tc_cond = float(args.get("temp_coeff_conductivity", 0))
+    ref_temp = float(args.get("reference_temp_c", 25))
+
+    validate_positive(epsilon_r, "epsilon_r")
+    validate_non_negative(conductivity, "conductivity")
+
+    script = VBAScript()
+    script.add_comment(f"Create temperature-dependent material: {mat_name}")
+    script.add_comment(
+        f"Temp coefficients: eps {tc_epsilon} ppm/K, "
+        f"sigma {tc_cond} /K, ref {ref_temp} C"
+    )
+
+    builder = (
+        VBABuilder("Material")
+        .call("Reset")
+        .set("Name", mat_name)
+        .set("Type", "Normal")
+        .set_number("Epsilon", epsilon_r)
+        .set_number("Sigma", conductivity)
+        .set_number("ReferenceTemperature", ref_temp)
+        .set_number("TempCoeffEpsilon", tc_epsilon)
+        .set_number("TempCoeffConductivity", tc_cond)
+        .call("Create")
+    )
+    script.add_block(builder)
+    vba = script.build()
+
+    result = client.execute_vba(vba)
+    return [TextContent(
+        type="text",
+        text=json.dumps({
+            "tool": "cst_create_temperature_dependent_material",
+            "material": mat_name,
+            "properties": {
+                "epsilon_r": epsilon_r,
+                "conductivity_S_m": conductivity,
+                "temp_coeff_epsilon_ppm_k": tc_epsilon,
+                "temp_coeff_conductivity": tc_cond,
+                "reference_temp_c": ref_temp,
+            },
+            "vba": vba,
+            **result,
+        }, indent=2),
+    )]
+
+
+def _handle_create_cole_cole_material(args: dict, client: CSTClient) -> list[TextContent]:
+    mat_name = validate_name(args["name"], "material name")
+    epsilon_inf = float(args["epsilon_inf"])
+    delta_epsilon = float(args["delta_epsilon"])
+    relaxation_time_ps = float(args["relaxation_time_ps"])
+    alpha = float(args["alpha"])
+
+    validate_positive(epsilon_inf, "epsilon_inf")
+    validate_positive(delta_epsilon, "delta_epsilon")
+    validate_positive(relaxation_time_ps, "relaxation_time_ps")
+    validate_range(alpha, 0.0, 1.0, "alpha")
+
+    vba = (
+        VBABuilder("Material")
+        .call("Reset")
+        .set("Name", mat_name)
+        .set("Type", "Normal")
+        .set("SetDispersionModelEps", "Cole Cole 1st Order")
+        .set_number("EpsilonInfinity", epsilon_inf)
+        .set_number("DispEps", delta_epsilon)
+        .set_number("DispCoeff0Eps", relaxation_time_ps)
+        .set_number("Alpha", alpha)
+        .call("Create")
+        .build()
+    )
+
+    result = client.execute_vba(vba)
+    return [TextContent(
+        type="text",
+        text=json.dumps({
+            "tool": "cst_create_cole_cole_material",
+            "material": mat_name,
+            "properties": {
+                "model": "Cole-Cole 1st Order",
+                "epsilon_inf": epsilon_inf,
+                "delta_epsilon": delta_epsilon,
+                "relaxation_time_ps": relaxation_time_ps,
+                "alpha": alpha,
+            },
+            "vba": vba,
+            **result,
+        }, indent=2),
+    )]
+
+
+def _handle_list_ferrite_materials(args: dict) -> list[TextContent]:
+    ferrites_path = DATA_DIR / "ferrites.json"
+    if not ferrites_path.exists():
+        return [TextContent(
+            type="text",
+            text=json.dumps({
+                "tool": "cst_list_ferrite_materials",
+                "status": "error",
+                "message": "Ferrite database not found",
+            }, indent=2),
+        )]
+
+    with ferrites_path.open() as f:
+        data = json.load(f)
+    ferrites = data.get("ferrites", [])
+
+    return [TextContent(
+        type="text",
+        text=json.dumps({
+            "tool": "cst_list_ferrite_materials",
+            "count": len(ferrites),
+            "ferrites": ferrites,
         }, indent=2),
     )]
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -29,7 +29,12 @@ def offline_client(offline_config: CSTConfig) -> CSTClient:
 
 @pytest.fixture
 def mock_client() -> CSTClient:
-    """CSTClient with mocked CST connection for testing connected mode."""
+    """CSTClient with mocked CST connection for testing connected mode.
+
+    The mock project exposes ``modeler.execute_vba_code`` which returns
+    ``"ok"`` by default — matching the real CST Python API for MWS projects.
+    Patches ``CST_AVAILABLE`` so the ``connected`` property returns True.
+    """
     config = CSTConfig(
         cst_path=r"C:\Program Files\CST Studio Suite 2026",
         work_dir="/tmp/cst_test",
@@ -37,6 +42,15 @@ def mock_client() -> CSTClient:
         connected=True,
     )
     client = CSTClient(config=config)
-    client._project = MagicMock()
+    project = MagicMock()
+    project.modeler.execute_vba_code.return_value = "ok"
+    client._project = project
     client._project_path = r"C:\test\project.cst"
-    return client
+
+    # Patch CST_AVAILABLE at the module level so client.connected returns True
+    patcher = patch("mcp_cst_studio.cst_client.CST_AVAILABLE", True)
+    patcher.start()
+
+    yield client
+
+    patcher.stop()

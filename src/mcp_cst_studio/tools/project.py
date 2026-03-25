@@ -14,7 +14,7 @@ from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.types import ExportFormat, ProjectType
-from mcp_cst_studio.validators import validate_file_path, validate_name, ValidationError
+from mcp_cst_studio.validators import validate_file_path, ValidationError
 from mcp_cst_studio.vba_builder import VBABuilder, VBAScript, _escape_vba_string
 
 if TYPE_CHECKING:
@@ -209,7 +209,7 @@ def _build_create_vba(path: str, project_type: str) -> str:
 
     lines = [
         "Sub Main()",
-        f'  Dim sPath As String',
+        '  Dim sPath As String',
         f'  sPath = "{path}"',
         "",
         "  ' Open a new project from the appropriate template",
@@ -217,7 +217,7 @@ def _build_create_vba(path: str, project_type: str) -> str:
         "  OpenNewProject",
         "",
         "  ' Save the project to the specified path",
-        f'  SaveAs sPath, False',
+        '  SaveAs sPath, False',
         "End Sub",
     ]
     script.add_raw("\n".join(lines))
@@ -292,7 +292,7 @@ def _build_tree_vba(tree_path: str | None) -> str:
 
     lines = [
         "Sub Main()",
-        f'  Dim sPath As String',
+        '  Dim sPath As String',
         f'  sPath = "{safe_root}"',
         "",
         "  SelectTreeItem sPath",

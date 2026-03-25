@@ -8,7 +8,7 @@ from mcp.server import Server
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.validators import validate_name, validate_port_number, validate_positive
+from mcp_cst_studio.validators import validate_name, validate_port_number, validate_positive, validate_range
 from mcp_cst_studio.vba_builder import VBABuilder
 
 _ORIENTATION_ENUM = ["xmin", "xmax", "ymin", "ymax", "zmin", "zmax"]
@@ -281,6 +281,67 @@ TOOLS: list[Tool] = [
             "required": ["port_number"],
         },
     ),
+    Tool(
+        name="cst_add_multipin_port",
+        description=(
+            "Add a waveguide port with multiple mode monitoring for higher-order mode "
+            "analysis. Used for multimode waveguides, mode converters, and structures "
+            "where higher-order propagating modes need to be captured."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "port_number": {
+                    "type": "integer",
+                    "description": "Port number (1-999)",
+                },
+                "orientation": {
+                    "type": "string",
+                    "enum": _ORIENTATION_ENUM,
+                    "description": "Face of the bounding box where the port is placed",
+                },
+                "x_min": {
+                    "type": "number",
+                    "description": "X-axis minimum coordinate of the port aperture (mm)",
+                },
+                "x_max": {
+                    "type": "number",
+                    "description": "X-axis maximum coordinate of the port aperture (mm)",
+                },
+                "y_min": {
+                    "type": "number",
+                    "description": "Y-axis minimum coordinate of the port aperture (mm)",
+                },
+                "y_max": {
+                    "type": "number",
+                    "description": "Y-axis maximum coordinate of the port aperture (mm)",
+                },
+                "z_min": {
+                    "type": "number",
+                    "description": "Z-axis minimum coordinate of the port aperture (mm)",
+                },
+                "z_max": {
+                    "type": "number",
+                    "description": "Z-axis maximum coordinate of the port aperture (mm)",
+                },
+                "num_modes": {
+                    "type": "integer",
+                    "description": "Number of modes to monitor (1-10, default 1)",
+                    "default": 1,
+                },
+            },
+            "required": [
+                "port_number",
+                "orientation",
+                "x_min",
+                "x_max",
+                "y_min",
+                "y_max",
+                "z_min",
+                "z_max",
+            ],
+        },
+    ),
 ]
 
 async def handle(
@@ -302,6 +363,8 @@ async def handle(
             return await _handle_list_ports(arguments, client)
         if name == "cst_delete_port":
             return await _handle_delete_port(arguments, client)
+        if name == "cst_add_multipin_port":
+            return await _handle_multipin_port(arguments, client)
 
         return [TextContent(type="text", text=json.dumps({
             "status": "error", "message": f"Unknown port tool: {name}",
@@ -576,6 +639,46 @@ async def _handle_delete_port(
     result = client.execute_vba(script)
     result["action"] = "deleted"
     result["port_number"] = port_number
+
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+async def _handle_multipin_port(
+    arguments: dict, client: CSTClient
+) -> list[TextContent]:
+    port_number = validate_port_number(arguments["port_number"])
+    orientation = arguments["orientation"]
+    if orientation not in _ORIENTATION_ENUM:
+        raise ValueError(
+            f"Invalid orientation '{orientation}'. Must be one of: {_ORIENTATION_ENUM}"
+        )
+    x_min = float(arguments["x_min"])
+    x_max = float(arguments["x_max"])
+    y_min = float(arguments["y_min"])
+    y_max = float(arguments["y_max"])
+    z_min = float(arguments["z_min"])
+    z_max = float(arguments["z_max"])
+    num_modes = int(arguments.get("num_modes", 1))
+    validate_range(num_modes, 1, 10, "num_modes")
+
+    vba = (
+        VBABuilder("Port")
+        .call("Reset")
+        .set_number("PortNumber", port_number)
+        .set("Label", "")
+        .set("Orientation", orientation)
+        .set_double("Xrange", x_min, x_max)
+        .set_double("Yrange", y_min, y_max)
+        .set_double("Zrange", z_min, z_max)
+        .set_number("NumberOfModes", num_modes)
+        .call("Create")
+    )
+    script = vba.build()
+    result = client.execute_vba(script)
+    result["port_type"] = "multipin"
+    result["port_number"] = port_number
+    result["orientation"] = orientation
+    result["num_modes"] = num_modes
 
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
