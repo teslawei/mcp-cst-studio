@@ -16,7 +16,7 @@ from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
-from mcp_cst_studio.validators import validate_name, validate_frequency, validate_positive
+from mcp_cst_studio.validators import validate_frequency, validate_positive
 
 # ---------------------------------------------------------------------------
 # Physical constants
@@ -725,7 +725,7 @@ def _build_patch_antenna(args: dict) -> str:
             h, h + 0.035,
         ))
         # Feed line on top of substrate from edge to patch
-        feed_length = gnd_y / 2 - L / 2
+        gnd_y / 2 - L / 2
         script.add_raw(_build_brick(
             "Antenna", "FeedLine", "PEC",
             -feed_w / 2, feed_w / 2,
@@ -749,7 +749,7 @@ def _build_patch_antenna(args: dict) -> str:
         script.add_block(port_vba)
 
     elif feed_type == "microstrip":
-        feed_length = gnd_y / 2 - L / 2
+        gnd_y / 2 - L / 2
         script.add_raw(_build_brick(
             "Antenna", "FeedLine", "PEC",
             -feed_w / 2, feed_w / 2,
@@ -1121,10 +1121,6 @@ def _build_horn_antenna(args: dict) -> str:
 
     # Inner vacuum for horn (tapered cavity approximated via loft)
     # Use analytical VBA for loft between waveguide aperture and horn aperture
-    loft_vba_lines = [
-        "' --- Lofted horn interior (waveguide to aperture) ---",
-        "' Create rear profile (waveguide end) at z=0",
-    ]
 
     # Rear profile curve
     rear_curve = (
@@ -1260,7 +1256,7 @@ def _build_yagi_antenna(args: dict) -> str:
 
     # Create each element as a cylinder along x-axis at position z
     for name, z_pos, length in elements:
-        elem_vba = (
+        (
             VBABuilder("Cylinder")
             .call("Reset")
             .set("Name", name)
@@ -1509,7 +1505,6 @@ def _build_vivaldi_antenna(args: dict) -> str:
         R_taper = 0
 
     # Feed line (microstrip on opposite side, quarter-wave stub)
-    feed_w = 2.0  # approximate 50-ohm line width for eps_r=2.2
 
     f_min = freq * 0.5  # Vivaldi is wideband
     f_max = freq * 1.5

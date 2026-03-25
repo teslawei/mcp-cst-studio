@@ -570,7 +570,7 @@ def _generate_recommendations(
         f"(gap: {gap:.2f})"
     )
 
-    band_center = (f_low + f_high) / 2.0
+    (f_low + f_high) / 2.0
 
     # Resonance-based recommendations
     if nearest_resonance:
@@ -955,7 +955,7 @@ async def _optimization_loop(
 
     Only the final best-parameter application uses add_to_history.
     """
-    n = len(params_spec)
+    len(params_spec)
     param_names = [p["name"] for p in params_spec]
     x0 = [p["initial"] for p in params_spec]
     bounds = [(p["min"], p["max"]) for p in params_spec]
@@ -1259,7 +1259,7 @@ async def _handle_refine(args: dict, client: CSTClient) -> dict:
 
         # Use first band's target for the goal
         first_band = bands[0]
-        s11_threshold = vswr_to_s11(first_band.get("vswr_target", 2.5))
+        vswr_to_s11(first_band.get("vswr_target", 2.5))
         tree_path = f"1D Results\\S-Parameters\\S{port},{port}"
         vba.set("SetGoalType", "Min")
         vba.set("SetGoalResult", tree_path)

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import math
 import os
 import tempfile
 
 import pytest
+
+from mcp_cst_studio.cst_client import CSTClient
 
 from mcp_cst_studio.tools.optimization import (
     _analyze_impedance_band,
@@ -269,8 +272,8 @@ class TestVBAGeneration:
     def test_set_params_vba_only_store_parameter(self):
         """VBA should only contain StoreParameter lines."""
         vba = _set_params_vba({"x": 1.0, "y": 2.0})
-        lines = [l for l in vba.split("\n") if l.strip()]
-        assert all("StoreParameter" in l for l in lines)
+        lines = [line for line in vba.split("\n") if line.strip()]
+        assert all("StoreParameter" in line for line in lines)
 
     def test_set_params_and_solve_vba(self):
         """Combined VBA stores params, solves, and exports."""
@@ -563,11 +566,6 @@ class TestOfflineMode:
         assert "initial" in data["message"]
 
 
-import json
-
-from mcp_cst_studio.cst_client import CSTClient
-
-
 # ---------------------------------------------------------------------------
 # Diagnostics tools
 # ---------------------------------------------------------------------------
@@ -669,8 +667,6 @@ class TestDialogHandler:
 
     def test_import(self):
         from mcp_cst_studio.dialog_handler import (
-            DialogWatcher,
-            dismiss_cst_dialogs,
             find_cst_dialogs,
         )
         # Functions should be importable and callable
