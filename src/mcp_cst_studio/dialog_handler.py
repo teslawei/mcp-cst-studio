@@ -40,7 +40,7 @@ if _IS_WINDOWS:
     user32 = ctypes.windll.user32  # type: ignore[attr-defined]
 
     # Callback type for EnumWindows / EnumChildWindows
-    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)  # type: ignore[attr-defined]
 
     # Constants
     WM_CLOSE = 0x0010

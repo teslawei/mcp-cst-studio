@@ -17,7 +17,7 @@ import logging
 import math
 import os
 import tempfile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
 from mcp.types import TextContent, Tool
 
@@ -363,7 +363,7 @@ def _find_resonances(
 
     Returns list of {freq_ghz, s11_db, vswr} for each detected resonance.
     """
-    resonances = []
+    resonances: list[dict] = []
     n = len(s11_db)
     if n < 3:
         return resonances
@@ -1445,7 +1445,7 @@ def _build_impedance_vba(port: int) -> str:
 # Dispatch
 # ---------------------------------------------------------------------------
 
-_HANDLERS: dict[str, callable] = {
+_HANDLERS: dict[str, Callable[..., Any]] = {
     "cst_evaluate_antenna": _handle_evaluate,
     "cst_analyze_impedance": _handle_analyze_impedance,
     "cst_refine_antenna": _handle_refine,

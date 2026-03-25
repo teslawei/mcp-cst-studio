@@ -832,7 +832,7 @@ def _handle_get_material_info(args: dict) -> list[TextContent]:
     if mat is None:
         # List available names to help the user
         db = _load_material_db()
-        available = []
+        available: list[str] = []
         for cat_list in db.values():
             available.extend(m["name"] for m in cat_list)
         return [TextContent(
