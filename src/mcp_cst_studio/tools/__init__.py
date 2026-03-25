@@ -12,9 +12,12 @@ pair so the MCP protocol sees all tools in one list.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Awaitable, Callable
 
 from mcp.types import TextContent, Tool
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from mcp.server import Server
@@ -31,6 +34,11 @@ class ToolRegistry:
     def __init__(self) -> None:
         self._tools: list[Tool] = []
         self._handlers: dict[str, ToolHandler] = {}
+
+    def clear(self) -> None:
+        """Remove all registered tools and handlers."""
+        self._tools.clear()
+        self._handlers.clear()
 
     # -- public API used by each register_*_tools function --
 
@@ -69,6 +77,7 @@ class ToolRegistry:
             handler = handlers.get(name)
             if handler is None:
                 raise ValueError(f"Unknown tool: {name}")
+            logger.debug("Dispatching tool: %s", name)
             return await handler(name, arguments)
 
 
@@ -78,7 +87,9 @@ _registry = ToolRegistry()
 
 def register_all_tools(server: Server, client: CSTClient) -> None:
     """Register all tool modules with the MCP server."""
+    _registry.clear()  # prevent duplicate registration on repeated calls
     from mcp_cst_studio.tools.antenna_templates import register_antenna_template_tools
+    from mcp_cst_studio.tools.arrays import register_array_tools
     from mcp_cst_studio.tools.boolean import register_boolean_tools
     from mcp_cst_studio.tools.boundaries import register_boundary_tools
     from mcp_cst_studio.tools.diagnostics import register_diagnostics_tools
@@ -95,6 +106,7 @@ def register_all_tools(server: Server, client: CSTClient) -> None:
     from mcp_cst_studio.tools.simulation import register_simulation_tools
     from mcp_cst_studio.tools.solvers import register_solver_tools
     from mcp_cst_studio.tools.transforms import register_transform_tools
+    from mcp_cst_studio.tools.matching import register_matching_tools
     from mcp_cst_studio.tools.vba import register_vba_tools
 
     register_project_tools(server, client)
@@ -113,7 +125,9 @@ def register_all_tools(server: Server, client: CSTClient) -> None:
     register_optimization_tools(server, client)
     register_diagnostics_tools(server, client)
     register_antenna_template_tools(server, client)
+    register_array_tools(server, client)
     register_pcb_tools(server, client)
+    register_matching_tools(server, client)
     register_vba_tools(server, client)
 
     # Wire accumulated tools into the MCP server protocol

@@ -133,10 +133,74 @@ TOOLS: list[Tool] = [
             "required": [],
         },
     ),
+    Tool(
+        name="cst_get_mesh_quality",
+        description=(
+            "Extract mesh quality metrics including total cells, aspect ratios, and cells "
+            "per wavelength. In connected mode this queries actual mesh statistics; in "
+            "offline mode it describes what metrics would be returned."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    ),
+    Tool(
+        name="cst_set_pml_properties",
+        description=(
+            "Configure PML (Perfectly Matched Layer) absorbing boundary properties. "
+            "Controls the number of absorbing layers and the target reflection level "
+            "for fine-tuning radiation boundary accuracy."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "num_layers": {
+                    "type": "integer",
+                    "description": "Number of PML layers (4-12, default 4)",
+                    "default": 4,
+                },
+                "reflection_level_db": {
+                    "type": "number",
+                    "description": "Target reflection level in dB (-80 to -20, default -40)",
+                    "default": -40,
+                },
+            },
+            "required": [],
+        },
+    ),
+    Tool(
+        name="cst_add_fixpoint_mesh",
+        description=(
+            "Add a fixed mesh point at specific coordinates for precise field sampling. "
+            "Ensures the mesh contains a node exactly at the specified location for "
+            "accurate field probing."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "x": {
+                    "type": "number",
+                    "description": "X coordinate in mm",
+                },
+                "y": {
+                    "type": "number",
+                    "description": "Y coordinate in mm",
+                },
+                "z": {
+                    "type": "number",
+                    "description": "Z coordinate in mm",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Optional name for the fixed mesh point",
+                },
+            },
+            "required": ["x", "y", "z"],
+        },
+    ),
 ]
-
-_TOOL_NAMES = {t.name for t in TOOLS}
-
 
 async def handle(
     name: str, arguments: dict, client: CSTClient
@@ -153,13 +217,17 @@ async def handle(
             return _set_adaptive_mesh(arguments, client)
         elif name == "cst_get_mesh_info":
             return _get_mesh_info(arguments, client)
+        elif name == "cst_get_mesh_quality":
+            return _get_mesh_quality(arguments, client)
+        elif name == "cst_set_pml_properties":
+            return _set_pml_properties(arguments, client)
+        elif name == "cst_add_fixpoint_mesh":
+            return _add_fixpoint_mesh(arguments, client)
 
-        return [
-            TextContent(
-                type="text",
-                text=json.dumps({"error": f"Unknown mesh tool: {name}"}),
-            )
-        ]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": f"Unknown mesh tool: {name}"}, indent=2),
+        )]
     except Exception as e:
         return [TextContent(
             type="text",
@@ -275,6 +343,77 @@ def _get_mesh_info(arguments: dict, client: CSTClient) -> list[TextContent]:
             ],
         }
 
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+def _get_mesh_quality(arguments: dict, client: CSTClient) -> list[TextContent]:
+    vba = VBABuilder("Mesh")
+    vba.call("Update")
+    script = vba.build()
+
+    if client.connected:
+        result = client.execute_vba(script)
+    else:
+        result = {
+            "status": "offline",
+            "vba": script,
+            "description": (
+                "In connected mode this would return mesh quality metrics including: "
+                "total number of mesh cells, minimum and maximum aspect ratios, "
+                "cells per wavelength at the highest frequency, and mesh quality "
+                "histogram data. Execute the VBA in CST to update and inspect the mesh."
+            ),
+            "expected_fields": [
+                "total_cells",
+                "min_aspect_ratio",
+                "max_aspect_ratio",
+                "cells_per_wavelength",
+                "mesh_quality_score",
+            ],
+        }
+
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+def _set_pml_properties(arguments: dict, client: CSTClient) -> list[TextContent]:
+    num_layers = int(arguments.get("num_layers", 4))
+    reflection_level_db = float(arguments.get("reflection_level_db", -40))
+
+    validate_range(num_layers, 4, 12, "num_layers")
+    validate_range(reflection_level_db, -80, -20, "reflection_level_db")
+
+    vba = VBABuilder("Boundary")
+    vba.set_number("SetPMLMinimumLayers", num_layers)
+    vba.set_number("SetPMLReflectionLevel", reflection_level_db)
+    script = vba.build()
+
+    result = client.execute_vba(script)
+    result["num_layers"] = num_layers
+    result["reflection_level_db"] = reflection_level_db
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+def _add_fixpoint_mesh(arguments: dict, client: CSTClient) -> list[TextContent]:
+    x = float(arguments["x"])
+    y = float(arguments["y"])
+    z = float(arguments["z"])
+    name = arguments.get("name")
+
+    if name is not None:
+        validate_name(name, "name")
+
+    vba = VBABuilder("Mesh")
+    if name is not None:
+        vba.set("FixedPointName", name)
+    vba.set_triple("AddFixedPoint", x, y, z)
+    script = vba.build()
+
+    result = client.execute_vba(script)
+    result["x"] = x
+    result["y"] = y
+    result["z"] = z
+    if name is not None:
+        result["name"] = name
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
 

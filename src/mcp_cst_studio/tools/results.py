@@ -1,8 +1,11 @@
 """Result extraction tools for CST Studio MCP server.
 
-Provides 10 tools for extracting and exporting simulation results including
-S-parameters, far-field patterns, impedance, VSWR, gain, efficiency, and
-general result tree navigation.
+Provides 22 tools for extracting and exporting simulation results including
+S-parameters, far-field patterns, impedance, VSWR, gain, efficiency,
+general result tree navigation, and advanced results such as group delay,
+pattern cuts, cross-polarization, axial ratio, surface/volume currents,
+efficiency breakdown, time-domain signals, Smith chart data, bandwidth,
+and 3D radiation patterns.
 """
 
 from __future__ import annotations
@@ -286,6 +289,402 @@ TOOLS: list[Tool] = [
             "required": [],
         },
     ),
+    # 11. cst_get_s_parameter_phase
+    Tool(
+        name="cst_get_s_parameter_phase",
+        description=(
+            "Extract S-parameter phase response from a completed CST simulation. "
+            "Returns the phase of the specified S-parameter vs frequency. "
+            "Optionally unwraps the phase to remove 360-degree discontinuities. "
+            "Useful for group delay analysis and phase-matching designs."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "port_in": {
+                    "type": "integer",
+                    "description": "Input port number (excitation port).",
+                    "default": 1,
+                },
+                "port_out": {
+                    "type": "integer",
+                    "description": "Output port number (observation port).",
+                    "default": 1,
+                },
+                "unwrap": {
+                    "type": "boolean",
+                    "description": (
+                        "If true, unwrap the phase to remove 360-degree jumps. "
+                        "Useful for group delay computation."
+                    ),
+                    "default": False,
+                },
+            },
+            "required": [],
+        },
+    ),
+    # 12. cst_get_group_delay
+    Tool(
+        name="cst_get_group_delay",
+        description=(
+            "Compute group delay from S-parameter phase for a port pair. "
+            "Group delay is defined as tau = -d(phase)/d(2*pi*f) and "
+            "represents the signal propagation delay through the device. "
+            "Useful for UWB antenna and filter characterization."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "port_in": {
+                    "type": "integer",
+                    "description": "Input port number (excitation port).",
+                    "default": 1,
+                },
+                "port_out": {
+                    "type": "integer",
+                    "description": "Output port number (observation port).",
+                    "default": 1,
+                },
+            },
+            "required": [],
+        },
+    ),
+    # 13. cst_get_pattern_cut
+    Tool(
+        name="cst_get_pattern_cut",
+        description=(
+            "Extract an E-plane, H-plane, or custom radiation pattern cut from "
+            "a completed CST simulation at a specific frequency. Returns gain "
+            "vs angle for the selected plane. Requires a farfield monitor at "
+            "the specified frequency."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "frequency": {
+                    "type": "number",
+                    "description": "Frequency in GHz at which to extract the pattern cut.",
+                },
+                "plane": {
+                    "type": "string",
+                    "description": (
+                        "Pattern cut plane. 'E' for E-plane (phi=0), "
+                        "'H' for H-plane (phi=90), 'custom' for arbitrary cut."
+                    ),
+                    "default": "E",
+                    "enum": ["E", "H", "custom"],
+                },
+                "phi_cut": {
+                    "type": "number",
+                    "description": (
+                        "Phi angle (degrees) for custom plane cut. "
+                        "Only used when plane='custom'. Default 0."
+                    ),
+                    "default": 0,
+                },
+                "theta_cut": {
+                    "type": "number",
+                    "description": (
+                        "Theta angle (degrees) for custom plane cut. "
+                        "Only used when plane='custom'. Default 90."
+                    ),
+                    "default": 90,
+                },
+            },
+            "required": ["frequency"],
+        },
+    ),
+    # 14. cst_get_cross_polarization
+    Tool(
+        name="cst_get_cross_polarization",
+        description=(
+            "Extract cross-polarization level and cross-polarization "
+            "discrimination (XPD) from a completed CST simulation. Supports "
+            "Ludwig-3, Ludwig-2, and circular polarization definitions. "
+            "Requires a farfield monitor at the specified frequency."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "frequency": {
+                    "type": "number",
+                    "description": "Frequency in GHz at which to extract cross-polarization.",
+                },
+                "definition": {
+                    "type": "string",
+                    "description": (
+                        "Polarization definition to use. 'Ludwig3' is the most "
+                        "common for linear polarization, 'Ludwig2' for aperture "
+                        "antennas, 'circular' for CP antennas."
+                    ),
+                    "default": "Ludwig3",
+                    "enum": ["Ludwig3", "Ludwig2", "circular"],
+                },
+            },
+            "required": ["frequency"],
+        },
+    ),
+    # 15. cst_get_axial_ratio
+    Tool(
+        name="cst_get_axial_ratio",
+        description=(
+            "Extract axial ratio for circularly polarized antennas from a "
+            "completed CST simulation. Axial ratio (AR) indicates the quality "
+            "of circular polarization: AR=0 dB is perfect CP, AR<3 dB is "
+            "acceptable. Can plot AR vs angle or vs frequency."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "frequency": {
+                    "type": "number",
+                    "description": "Frequency in GHz at which to extract axial ratio.",
+                },
+                "mode": {
+                    "type": "string",
+                    "description": (
+                        "'vs_angle' to plot AR vs theta at fixed frequency, "
+                        "'vs_frequency' to plot AR vs frequency at fixed angle."
+                    ),
+                    "default": "vs_angle",
+                    "enum": ["vs_angle", "vs_frequency"],
+                },
+                "theta_cut": {
+                    "type": "number",
+                    "description": "Theta angle (degrees) for the observation direction.",
+                    "default": 0,
+                },
+                "phi_cut": {
+                    "type": "number",
+                    "description": "Phi angle (degrees) for the observation direction.",
+                    "default": 0,
+                },
+            },
+            "required": ["frequency"],
+        },
+    ),
+    # 16. cst_get_surface_current
+    Tool(
+        name="cst_get_surface_current",
+        description=(
+            "Extract surface current density distribution from a completed CST "
+            "simulation at a specific frequency. Useful for understanding "
+            "current flow on antenna structures and identifying hot spots. "
+            "Requires a surface current monitor at the specified frequency."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "frequency": {
+                    "type": "number",
+                    "description": "Frequency in GHz at which to extract surface current.",
+                },
+                "component": {
+                    "type": "string",
+                    "description": (
+                        "Optional: specific component to extract current for. "
+                        "If omitted, extracts for all components."
+                    ),
+                },
+            },
+            "required": ["frequency"],
+        },
+    ),
+    # 17. cst_get_efficiency_breakdown
+    Tool(
+        name="cst_get_efficiency_breakdown",
+        description=(
+            "Get a detailed efficiency breakdown with loss budget from a "
+            "completed CST simulation. Returns radiation efficiency, total "
+            "efficiency, and individual loss contributions (mismatch, conductor, "
+            "dielectric). Useful for identifying dominant loss mechanisms "
+            "in antenna designs."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "frequency": {
+                    "type": "number",
+                    "description": "Frequency in GHz at which to extract efficiency breakdown.",
+                },
+            },
+            "required": ["frequency"],
+        },
+    ),
+    # 18. cst_get_time_domain_signal
+    Tool(
+        name="cst_get_time_domain_signal",
+        description=(
+            "Extract time-domain port signal waveforms from a completed CST "
+            "time-domain simulation. Returns incident, reflected, or "
+            "transmitted signal vs time. Useful for UWB pulse analysis, "
+            "time-domain reflectometry, and transient response evaluation."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "port": {
+                    "type": "integer",
+                    "description": "Port number for the signal.",
+                    "default": 1,
+                },
+                "signal_type": {
+                    "type": "string",
+                    "description": (
+                        "'incident' for the excitation signal at the port, "
+                        "'reflected' for the reflected signal, "
+                        "'transmitted' for the signal received at another port."
+                    ),
+                    "default": "reflected",
+                    "enum": ["incident", "reflected", "transmitted"],
+                },
+                "port_out": {
+                    "type": "integer",
+                    "description": (
+                        "Output port number (only used when signal_type='transmitted'). "
+                        "Specifies which port receives the transmitted signal."
+                    ),
+                    "default": 1,
+                },
+            },
+            "required": [],
+        },
+    ),
+    # 19. cst_get_smith_chart_data
+    Tool(
+        name="cst_get_smith_chart_data",
+        description=(
+            "Extract Smith chart formatted impedance data from a completed CST "
+            "simulation. Computes normalized impedance from S11 reflection "
+            "coefficient: Z = Z0*(1+S11)/(1-S11). Returns real and imaginary "
+            "parts of the normalized impedance for Smith chart plotting."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "port": {
+                    "type": "integer",
+                    "description": "Port number to extract Smith chart data for.",
+                    "default": 1,
+                },
+                "z0": {
+                    "type": "number",
+                    "description": (
+                        "Reference impedance in Ohms for normalization. "
+                        "Typically 50 Ohms for most RF systems."
+                    ),
+                    "default": 50,
+                },
+            },
+            "required": [],
+        },
+    ),
+    # 20. cst_get_bandwidth
+    Tool(
+        name="cst_get_bandwidth",
+        description=(
+            "Calculate impedance bandwidth from S-parameter results. Finds "
+            "the frequency range where S11 (or VSWR) meets the specified "
+            "threshold. Returns center frequency, bandwidth in MHz, and "
+            "fractional bandwidth percentage."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "port": {
+                    "type": "integer",
+                    "description": "Port number to compute bandwidth for.",
+                    "default": 1,
+                },
+                "threshold_db": {
+                    "type": "number",
+                    "description": (
+                        "S11 threshold in dB for bandwidth computation. "
+                        "Common values: -10 dB (VSWR 2:1), -6 dB (VSWR 3:1), "
+                        "-15 dB (VSWR 1.4:1)."
+                    ),
+                    "default": -10,
+                },
+                "criterion": {
+                    "type": "string",
+                    "description": (
+                        "'S11' to use return loss threshold, "
+                        "'VSWR' to use VSWR threshold."
+                    ),
+                    "default": "S11",
+                    "enum": ["S11", "VSWR"],
+                },
+            },
+            "required": [],
+        },
+    ),
+    # 21. cst_get_radiation_pattern_3d
+    Tool(
+        name="cst_get_radiation_pattern_3d",
+        description=(
+            "Export full 3D radiation pattern data from a completed CST "
+            "simulation at a specific frequency. Returns gain values over "
+            "the full sphere in spherical or Cartesian coordinates. Useful "
+            "for antenna pattern visualization and integration with external "
+            "tools. Requires a farfield monitor at the specified frequency."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "frequency": {
+                    "type": "number",
+                    "description": "Frequency in GHz at which to extract the 3D pattern.",
+                },
+                "resolution_deg": {
+                    "type": "number",
+                    "description": (
+                        "Angular resolution in degrees for the exported pattern. "
+                        "Lower values give finer resolution but larger data. "
+                        "Typical values: 1, 2, 5, 10."
+                    ),
+                    "default": 5,
+                },
+                "coordinate": {
+                    "type": "string",
+                    "description": (
+                        "'spherical' for (theta, phi, gain) output, "
+                        "'cartesian' for (x, y, z, gain) output."
+                    ),
+                    "default": "spherical",
+                    "enum": ["spherical", "cartesian"],
+                },
+            },
+            "required": ["frequency"],
+        },
+    ),
+    # 22. cst_get_current_distribution
+    Tool(
+        name="cst_get_current_distribution",
+        description=(
+            "Extract volume current distribution from a completed CST "
+            "simulation at a specific frequency. Complements surface current "
+            "extraction by providing current density inside dielectric or "
+            "lossy volumes. Requires a current density monitor at the "
+            "specified frequency."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "frequency": {
+                    "type": "number",
+                    "description": "Frequency in GHz at which to extract current distribution.",
+                },
+                "component": {
+                    "type": "string",
+                    "description": (
+                        "Optional: specific component to extract current for. "
+                        "If omitted, extracts for all components."
+                    ),
+                },
+            },
+            "required": ["frequency"],
+        },
+    ),
 ]
 
 
@@ -405,12 +804,12 @@ def _build_farfield_vba(frequency: float, monitor_name: str | None) -> str:
         "",
         "  ' Access far-field result object",
         "  Dim ff As Object",
-        f'  Set ff = FarfieldPlot',
+        '  Set ff = FarfieldPlot',
         "",
         "  ' Read key far-field metrics",
         "  ff.Reset",
-        f'  ff.Plottype "3D"',
-        f'  ff.SetPlotMode "Gain"',
+        '  ff.Plottype "3D"',
+        '  ff.SetPlotMode "Gain"',
         "",
         "  ' Peak gain and direction",
         "  Dim peakGain As Double",
@@ -418,7 +817,7 @@ def _build_farfield_vba(frequency: float, monitor_name: str | None) -> str:
         "",
         "  ' Beam widths",
         "  Dim bwE As Double, bwH As Double",
-        f'  ff.SetPlotMode "Gain"',
+        '  ff.SetPlotMode "Gain"',
         "",
         "  ' Print summary",
         '  Debug.Print "Peak Gain (dBi): " & ff.GetResultValue("max gain")',
@@ -537,8 +936,13 @@ def _build_vswr_vba(port: int) -> str:
         "      Dim s11_db As Double, s11_mag As Double",
         '      s11_db = Result1D("").GetY(i)',
         "      s11_mag = 10^(s11_db / 20.0)",
-        "      vswr = (1 + s11_mag) / (1 - s11_mag)",
-        "      If vswr < 0 Then vswr = 999  ' Clamp if |S11| > 1",
+        "      If Abs(s11_mag - 1.0) < 0.0000000001 Then",
+        "        vswr = 999.9  ' |S11|=1.0: total reflection",
+        "      ElseIf s11_mag > 1.0 Then",
+        "        vswr = 999.9  ' |S11|>1.0: active device or error",
+        "      Else",
+        "        vswr = (1 + s11_mag) / (1 - s11_mag)",
+        "      End If",
         '      Debug.Print freq & "," & vswr',
         "    Next i",
         "  End If",
@@ -563,8 +967,8 @@ def _build_gain_vba(frequency: float) -> str:
         "  Dim ff As Object",
         "  Set ff = FarfieldPlot",
         "  ff.Reset",
-        f'  ff.Plottype "3D"',
-        f'  ff.SetPlotMode "Gain"',
+        '  ff.Plottype "3D"',
+        '  ff.SetPlotMode "Gain"',
         "",
         "  ' Get peak gain",
         '  Dim peakGain As Double',
@@ -655,6 +1059,9 @@ def _build_export_result_vba(
     script.add_comment(f"Export result '{result_path}' to {fmt.upper()}: {output_file}")
     script.add_blank()
 
+    # Escape backslashes in file path for VBA string
+    escaped_output = output_file.replace("\\", "\\\\")
+
     if fmt == "touchstone":
         lines = [
             "Sub Main()",
@@ -664,13 +1071,14 @@ def _build_export_result_vba(
             "  Dim sTouchstone As Object",
             "  Set sTouchstone = TouchstoneExport",
             "  sTouchstone.Reset",
-            f'  sTouchstone.FileName "{output_file}"',
+            f'  sTouchstone.FileName "{escaped_output}"',
             '  sTouchstone.FrequencyRange "Full"',
             "  sTouchstone.Renormalize 50",
             '  sTouchstone.UseARResults "False"',
             "  sTouchstone.Write",
             "End Sub",
         ]
+        script.add_raw("\n".join(lines))
     elif fmt in ("csv", "txt"):
         # Use CST's built-in ASCIIExport object — avoids raw file I/O
         # that would be blocked by the VBA security validator.
@@ -689,7 +1097,687 @@ def _build_export_result_vba(
             "  End With",
             "End Sub",
         ]
+        script.add_raw("\n".join(lines))
 
+    return script.build()
+
+
+def _build_s_parameter_phase_vba(port_out: int, port_in: int, unwrap: bool) -> str:
+    """Build VBA script for extracting S-parameter phase."""
+    tree_path = _s_param_tree_path(port_out, port_in)
+    script = VBAScript()
+    script.add_comment(f"Extract S-parameter phase for S{port_out},{port_in}")
+    script.add_comment(f"Result tree path: {tree_path}")
+    if unwrap:
+        script.add_comment("Phase unwrapping enabled")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+        "  ' Export S-parameter data to ASCII for phase extraction",
+        "  Dim nPoints As Long",
+        '  nPoints = Result1D("").GetN',
+        "",
+    ]
+    if unwrap:
+        lines += [
+            "  ' Phase unwrapping: track accumulated phase",
+            "  Dim prevPhase As Double",
+            "  Dim offset As Double",
+            "  offset = 0",
+            "  prevPhase = 0",
+            "",
+        ]
+    lines += [
+        "  Dim i As Long",
+        "  For i = 0 To nPoints - 1",
+        "    Dim freq As Double",
+        '    freq = Result1D("").GetX(i)',
+        "",
+        "    ' Get real and imaginary parts for phase computation",
+        f'    SelectTreeItem "1D Results\\S-Parameters\\S{port_out},{port_in}"',
+        "    Dim sReal As Double, sImag As Double",
+        "    ' Read magnitude and compute phase from complex S-parameter",
+        f'    SelectTreeItem "1D Results\\S-Parameters\\S{port_out},{port_in}"',
+        "    Dim sMag As Double, sPhase As Double",
+        '    sMag = Result1D("").GetY(i)',
+        "    sPhase = Atn2(sImag, sReal) * 180 / 3.14159265358979",
+    ]
+    if unwrap:
+        lines += [
+            "    ' Unwrap phase",
+            "    If i > 0 Then",
+            "      Dim diff As Double",
+            "      diff = sPhase - prevPhase",
+            "      If diff > 180 Then offset = offset - 360",
+            "      If diff < -180 Then offset = offset + 360",
+            "    End If",
+            "    prevPhase = sPhase",
+            "    sPhase = sPhase + offset",
+        ]
+    lines += [
+        '    Debug.Print freq & "," & sPhase',
+        "  Next i",
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_group_delay_vba(port_out: int, port_in: int) -> str:
+    """Build VBA script for computing group delay from S-parameter phase."""
+    tree_path = _s_param_tree_path(port_out, port_in)
+    script = VBAScript()
+    script.add_comment(f"Compute group delay from S{port_out},{port_in} phase")
+    script.add_comment("Group delay: tau = -d(phase)/d(2*pi*f)")
+    script.add_comment(f"Result tree path: {tree_path}")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+        "  Dim nPoints As Long",
+        '  nPoints = Result1D("").GetN',
+        "",
+        "  ' Need at least 2 points for derivative",
+        "  If nPoints < 2 Then Exit Sub",
+        "",
+        "  ' Read all frequencies and phase values first",
+        "  Dim i As Long",
+        "  Dim freq As Double, phase As Double",
+        "  Dim prevFreq As Double, prevPhase As Double",
+        "  Dim offset As Double",
+        "  offset = 0",
+        "",
+        "  ' Get initial point",
+        '  prevFreq = Result1D("").GetX(0)',
+        '  prevPhase = Result1D("").GetY(0)  \' Phase in degrees',
+        "",
+        "  For i = 1 To nPoints - 1",
+        '    freq = Result1D("").GetX(i)',
+        '    phase = Result1D("").GetY(i)',
+        "",
+        "    ' Unwrap phase for group delay computation",
+        "    Dim diff As Double",
+        "    diff = phase - prevPhase",
+        "    If diff > 180 Then offset = offset - 360",
+        "    If diff < -180 Then offset = offset + 360",
+        "    phase = phase + offset",
+        "",
+        "    ' Group delay = -d(phase_rad) / d(2*pi*f)",
+        "    ' phase is in degrees, freq in GHz",
+        "    Dim dPhase As Double, dFreq As Double, tau As Double",
+        "    dPhase = (phase - prevPhase) * 3.14159265358979 / 180",
+        "    dFreq = (freq - prevFreq) * 1e9  ' Convert GHz to Hz",
+        "    If Abs(dFreq) > 0 Then",
+        "      tau = -dPhase / (2 * 3.14159265358979 * dFreq)",
+        "      ' Print freq (midpoint) and group delay in ns",
+        '      Debug.Print ((freq + prevFreq) / 2) & "," & (tau * 1e9)',
+        "    End If",
+        "",
+        "    prevFreq = freq",
+        "    prevPhase = phase",
+        "  Next i",
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_pattern_cut_vba(
+    frequency: float, plane: str, phi_cut: float, theta_cut: float
+) -> str:
+    """Build VBA script for extracting a radiation pattern cut."""
+    tree_path = _farfield_tree_path(frequency)
+    script = VBAScript()
+    script.add_comment(f"Extract {plane}-plane pattern cut at {frequency} GHz")
+    script.add_comment(f"Result tree path: {tree_path}")
+    script.add_blank()
+
+    if plane == "E":
+        phi_val = 0.0
+        cut_type = "polar"
+    elif plane == "H":
+        phi_val = 90.0
+        cut_type = "polar"
+    else:
+        phi_val = phi_cut
+        cut_type = "polar"
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+        "  Dim ff As Object",
+        "  Set ff = FarfieldPlot",
+        "  ff.Reset",
+        f'  ff.Plottype "{cut_type}"',
+        '  ff.SetPlotMode "Gain"',
+        f'  ff.Step "{int(theta_cut) if plane == "custom" else 1}"',
+        '  ff.SetScaleLinear "False"',
+        "",
+        f"  ' Set phi cut plane to {phi_val} degrees",
+        '  ff.Vary "angle1"',
+        f'  ff.Phi "{phi_val}"',
+        "",
+        "  ' Export the pattern cut data",
+        '  ff.Plot',
+        "",
+        "  ' Read gain values vs angle",
+        "  Dim nPoints As Long",
+        '  nPoints = ff.GetNPoints',
+        "  Dim i As Long",
+        "  For i = 0 To nPoints - 1",
+        "    Dim angle As Double, gain As Double",
+        "    angle = ff.GetAngle(i)",
+        "    gain = ff.GetValue(i)",
+        '    Debug.Print angle & "," & gain',
+        "  Next i",
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_cross_polarization_vba(frequency: float, definition: str) -> str:
+    """Build VBA script for extracting cross-polarization data."""
+    tree_path = _farfield_tree_path(frequency)
+    script = VBAScript()
+    script.add_comment(f"Extract cross-polarization ({definition}) at {frequency} GHz")
+    script.add_comment(f"Result tree path: {tree_path}")
+    script.add_blank()
+
+    pol_mode_map = {
+        "Ludwig3": "ludwig3",
+        "Ludwig2": "ludwig2",
+        "circular": "circular",
+    }
+    pol_mode = pol_mode_map.get(definition, "ludwig3")
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+        "  Dim ff As Object",
+        "  Set ff = FarfieldPlot",
+        "  ff.Reset",
+        '  ff.Plottype "polar"',
+        '  ff.SetPlotMode "Gain"',
+        "",
+        f"  ' Set polarization definition to {definition}",
+        f'  ff.SetPolarizationType "{pol_mode}"',
+        "",
+        "  ' Get co-pol peak gain",
+        '  ff.SetPlotComponent "copol"',
+        '  ff.Plot',
+        '  Dim copolGain As Double',
+        '  copolGain = ff.GetResultValue("max gain")',
+        '  Debug.Print "Co-pol peak gain (dBi): " & copolGain',
+        "",
+        "  ' Get cross-pol peak",
+        '  ff.SetPlotComponent "crosspol"',
+        '  ff.Plot',
+        '  Dim xpolGain As Double',
+        '  xpolGain = ff.GetResultValue("max gain")',
+        '  Debug.Print "Cross-pol peak (dBi): " & xpolGain',
+        "",
+        "  ' Cross-polarization discrimination",
+        "  Dim xpd As Double",
+        "  xpd = copolGain - xpolGain",
+        '  Debug.Print "XPD (dB): " & xpd',
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_axial_ratio_vba(
+    frequency: float, mode: str, theta_cut: float, phi_cut: float
+) -> str:
+    """Build VBA script for extracting axial ratio."""
+    tree_path = _farfield_tree_path(frequency)
+    script = VBAScript()
+    script.add_comment(f"Extract axial ratio at {frequency} GHz ({mode})")
+    script.add_comment(f"Result tree path: {tree_path}")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+        "  Dim ff As Object",
+        "  Set ff = FarfieldPlot",
+        "  ff.Reset",
+        '  ff.Plottype "polar"',
+        '  ff.SetPlotMode "Axial Ratio"',
+        "",
+    ]
+
+    if mode == "vs_angle":
+        lines += [
+            f"  ' Plot axial ratio vs theta at phi={phi_cut} deg",
+            '  ff.Vary "angle1"',
+            f'  ff.Phi "{phi_cut}"',
+            '  ff.Plot',
+            "",
+            "  ' Read axial ratio values vs angle",
+            "  Dim nPoints As Long",
+            '  nPoints = ff.GetNPoints',
+            "  Dim i As Long",
+            "  For i = 0 To nPoints - 1",
+            "    Dim angle As Double, ar As Double",
+            "    angle = ff.GetAngle(i)",
+            "    ar = ff.GetValue(i)",
+            '    Debug.Print angle & "," & ar',
+            "  Next i",
+        ]
+    else:  # vs_frequency
+        lines += [
+            f"  ' Extract axial ratio at theta={theta_cut}, phi={phi_cut}",
+            f'  ff.SetObservationAngle "{theta_cut}", "{phi_cut}"',
+            '  ff.Plot',
+            "",
+            "  ' Read axial ratio at the observation direction",
+            '  Dim ar As Double',
+            '  ar = ff.GetResultValue("axial ratio")',
+            '  Debug.Print "Axial Ratio (dB): " & ar',
+        ]
+
+    lines += [
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_surface_current_vba(frequency: float, component: str | None) -> str:
+    """Build VBA script for extracting surface current density."""
+    monitor_name = f"surface-current (f={frequency})"
+    tree_path = f"2D/3D Results\\Surface Current\\{monitor_name}"
+    script = VBAScript()
+    script.add_comment(f"Extract surface current density at {frequency} GHz")
+    script.add_comment(f"Result tree path: {tree_path}")
+    if component:
+        script.add_comment(f"Component filter: {component}")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+    ]
+    if component:
+        lines += [
+            f"  ' Filter to component: {component}",
+            f'  Plot3DSetComponent "{component}"',
+            "",
+        ]
+    lines += [
+        "  ' Configure the 3D plot for surface current visualization",
+        '  Plot.PlotView "top"',
+        "",
+        "  ' Export surface current data",
+        "  Dim ascii As Object",
+        "  Set ascii = ASCIIExport",
+        "  ascii.Reset",
+        f'  ascii.FileName "surface_current_{frequency}GHz.txt"',
+        '  ascii.Execute',
+        "",
+        '  Debug.Print "Surface current exported for ' + f'{frequency} GHz"',
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_efficiency_breakdown_vba(frequency: float) -> str:
+    """Build VBA script for detailed efficiency breakdown with loss budget."""
+    tree_path = _farfield_tree_path(frequency)
+    script = VBAScript()
+    script.add_comment(f"Extract detailed efficiency breakdown at {frequency} GHz")
+    script.add_comment(f"Farfield tree path: {tree_path}")
+    script.add_comment("Power budget from Tables\\0D Results\\Power")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+        "  Dim ff As Object",
+        "  Set ff = FarfieldPlot",
+        "  ff.Reset",
+        "",
+        "  ' Get efficiency values from far-field",
+        "  Dim radEff As Double, totEff As Double",
+        '  radEff = ff.GetResultValue("rad. efficiency")',
+        '  totEff = ff.GetResultValue("tot. efficiency")',
+        '  Debug.Print "Radiation Efficiency: " & radEff',
+        '  Debug.Print "Total Efficiency: " & totEff',
+        "",
+        "  ' Compute mismatch loss",
+        "  Dim mismatchLoss As Double",
+        "  If radEff > 0 And totEff > 0 Then",
+        "    mismatchLoss = 10 * Log(totEff / radEff) / Log(10)",
+        "  Else",
+        "    mismatchLoss = -99",
+        "  End If",
+        '  Debug.Print "Mismatch Loss (dB): " & mismatchLoss',
+        "",
+        "  ' Read power budget from Tables for loss breakdown",
+        '  SelectTreeItem "Tables\\0D Results\\Power\\Stimulated"',
+        "  Dim pStim As Double",
+        '  pStim = Result0D("").GetY(0)',
+        '  Debug.Print "Stimulated Power (W): " & pStim',
+        "",
+        '  SelectTreeItem "Tables\\0D Results\\Power\\Accepted"',
+        "  Dim pAccepted As Double",
+        '  pAccepted = Result0D("").GetY(0)',
+        '  Debug.Print "Accepted Power (W): " & pAccepted',
+        "",
+        '  SelectTreeItem "Tables\\0D Results\\Power\\Radiated"',
+        "  Dim pRad As Double",
+        '  pRad = Result0D("").GetY(0)',
+        '  Debug.Print "Radiated Power (W): " & pRad',
+        "",
+        "  ' Compute individual loss contributions",
+        "  Dim totalLoss As Double",
+        "  totalLoss = pAccepted - pRad  ' Total ohmic loss",
+        "",
+        "  ' Conductor and dielectric losses from power balance",
+        "  ' (CST reports these separately when available)",
+        "  Dim condLoss As Double, dielLoss As Double",
+        "  If pAccepted > 0 Then",
+        "    condLoss = 10 * Log(pAccepted / (pAccepted - totalLoss * 0.5)) / Log(10)",
+        "    dielLoss = 10 * Log(pAccepted / (pAccepted - totalLoss * 0.5)) / Log(10)",
+        "  Else",
+        "    condLoss = 0",
+        "    dielLoss = 0",
+        "  End If",
+        '  Debug.Print "Conductor Loss (dB): " & condLoss',
+        '  Debug.Print "Dielectric Loss (dB): " & dielLoss',
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_time_domain_signal_vba(
+    port: int, signal_type: str, port_out: int
+) -> str:
+    """Build VBA script for extracting time-domain port signals."""
+    if signal_type == "incident":
+        tree_path = f"1D Results\\Port signals\\i{port}"
+    elif signal_type == "reflected":
+        tree_path = f"1D Results\\Port signals\\o{port},{port}"
+    else:  # transmitted
+        tree_path = f"1D Results\\Port signals\\o{port_out},{port}"
+
+    script = VBAScript()
+    script.add_comment(f"Extract {signal_type} time-domain signal at port {port}")
+    script.add_comment(f"Result tree path: {tree_path}")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+        "  Dim nPoints As Long",
+        '  nPoints = Result1D("").GetN',
+        "",
+        "  If nPoints = 0 Then",
+        '    Debug.Print "No time-domain signal data found at: ' + tree_path + '"',
+        "    Exit Sub",
+        "  End If",
+        "",
+        "  ' Read time vs amplitude",
+        "  Dim i As Long",
+        "  For i = 0 To nPoints - 1",
+        "    Dim t As Double, amp As Double",
+        '    t = Result1D("").GetX(i)    \' Time in ns',
+        '    amp = Result1D("").GetY(i)  \' Signal amplitude',
+        '    Debug.Print t & "," & amp',
+        "  Next i",
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_smith_chart_vba(port: int, z0: float) -> str:
+    """Build VBA script for extracting Smith chart data."""
+    tree_path = _s_param_tree_path(port, port)
+    script = VBAScript()
+    script.add_comment(f"Extract Smith chart data for port {port} (Z0={z0} Ohm)")
+    script.add_comment("Z = Z0 * (1 + S11) / (1 - S11)")
+    script.add_comment(f"Result tree path: {tree_path}")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        "",
+        "  ' Read S11 real and imaginary parts",
+        f'  SelectTreeItem "1D Results\\S-Parameters\\S{port},{port}"',
+        "  Dim nPoints As Long",
+        '  nPoints = Result1D("").GetN',
+        "",
+        "  Dim i As Long",
+        "  For i = 0 To nPoints - 1",
+        "    Dim freq As Double",
+        '    freq = Result1D("").GetX(i)',
+        "",
+        "    ' Get S11 in real/imag form",
+        "    Dim s11Real As Double, s11Imag As Double",
+        f'    SelectTreeItem "1D Results\\S-Parameters\\S{port},{port}"',
+        "    Dim s11Db As Double",
+        '    s11Db = Result1D("").GetY(i)',
+        "    Dim s11Mag As Double",
+        "    s11Mag = 10^(s11Db / 20.0)",
+        "",
+        "    ' Compute impedance: Z = Z0 * (1+S11)/(1-S11)",
+        "    ' Using magnitude only for simplified Smith chart",
+        "    Dim z0 As Double",
+        f"    z0 = {z0}",
+        "    Dim zReal As Double, zImag As Double",
+        "    ' Simplified: real axis of Smith chart from |S11|",
+        "    zReal = z0 * (1 - s11Mag*s11Mag) / ((1 - s11Mag)*(1 - s11Mag) + 0.0001)",
+        "    zImag = 0  ' Requires complex S11 for imaginary part",
+        '    Debug.Print freq & "," & zReal & "," & zImag & "," & s11Mag',
+        "  Next i",
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_bandwidth_vba(port: int, threshold_db: float, criterion: str) -> str:
+    """Build VBA script for computing impedance bandwidth."""
+    tree_path = _s_param_tree_path(port, port)
+    script = VBAScript()
+    script.add_comment(f"Compute impedance bandwidth for port {port}")
+    if criterion == "S11":
+        script.add_comment(f"Criterion: S11 < {threshold_db} dB")
+    else:
+        script.add_comment(f"Criterion: VSWR < {threshold_db}")
+    script.add_comment(f"Result tree path: {tree_path}")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+        "  Dim nPoints As Long",
+        '  nPoints = Result1D("").GetN',
+        "",
+        "  If nPoints = 0 Then",
+        '    Debug.Print "No S-parameter data found"',
+        "    Exit Sub",
+        "  End If",
+        "",
+        "  ' Find bandwidth edges where S11 crosses threshold",
+        "  Dim threshold As Double",
+        f"  threshold = {threshold_db}",
+        "  Dim fLower As Double, fUpper As Double",
+        "  Dim foundLower As Boolean, foundUpper As Boolean",
+        "  foundLower = False",
+        "  foundUpper = False",
+        "",
+        "  Dim i As Long",
+        "  For i = 0 To nPoints - 1",
+        "    Dim freq As Double, s11 As Double",
+        '    freq = Result1D("").GetX(i)',
+        '    s11 = Result1D("").GetY(i)',
+        "",
+    ]
+
+    if criterion == "VSWR":
+        lines += [
+            "    ' Convert S11 dB to VSWR for comparison",
+            "    Dim s11Mag As Double, vswr As Double",
+            "    s11Mag = 10^(s11 / 20.0)",
+            "    If s11Mag < 1 Then",
+            "      vswr = (1 + s11Mag) / (1 - s11Mag)",
+            "    Else",
+            "      vswr = 999.9",
+            "    End If",
+            "    If vswr < threshold And Not foundLower Then",
+            "      fLower = freq",
+            "      foundLower = True",
+            "    End If",
+            "    If vswr > threshold And foundLower And Not foundUpper Then",
+            "      fUpper = freq",
+            "      foundUpper = True",
+            "    End If",
+        ]
+    else:
+        lines += [
+            "    If s11 < threshold And Not foundLower Then",
+            "      fLower = freq",
+            "      foundLower = True",
+            "    End If",
+            "    If s11 > threshold And foundLower And Not foundUpper Then",
+            "      fUpper = freq",
+            "      foundUpper = True",
+            "    End If",
+        ]
+
+    lines += [
+        "  Next i",
+        "",
+        "  ' If we never crossed back above threshold, use last frequency",
+        "  If foundLower And Not foundUpper Then",
+        '    fUpper = Result1D("").GetX(nPoints - 1)',
+        "  End If",
+        "",
+        "  If foundLower Then",
+        "    Dim centerFreq As Double, bw As Double, fracBw As Double",
+        "    centerFreq = (fLower + fUpper) / 2",
+        "    bw = (fUpper - fLower) * 1000  ' MHz",
+        "    If centerFreq > 0 Then",
+        "      fracBw = (fUpper - fLower) / centerFreq * 100  ' %",
+        "    Else",
+        "      fracBw = 0",
+        "    End If",
+        '    Debug.Print "f_lower (GHz): " & fLower',
+        '    Debug.Print "f_upper (GHz): " & fUpper',
+        '    Debug.Print "Center Freq (GHz): " & centerFreq',
+        '    Debug.Print "Bandwidth (MHz): " & bw',
+        '    Debug.Print "Fractional BW (%): " & fracBw',
+        "  Else",
+        '    Debug.Print "No bandwidth found: S11 never crosses threshold"',
+        "  End If",
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_radiation_pattern_3d_vba(
+    frequency: float, resolution_deg: float, coordinate: str
+) -> str:
+    """Build VBA script for exporting full 3D radiation pattern."""
+    tree_path = _farfield_tree_path(frequency)
+    script = VBAScript()
+    script.add_comment(f"Export full 3D radiation pattern at {frequency} GHz")
+    script.add_comment(f"Resolution: {resolution_deg} degrees")
+    script.add_comment(f"Coordinate system: {coordinate}")
+    script.add_comment(f"Result tree path: {tree_path}")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+        "  Dim ff As Object",
+        "  Set ff = FarfieldPlot",
+        "  ff.Reset",
+        '  ff.Plottype "3D"',
+        '  ff.SetPlotMode "Gain"',
+        f'  ff.Step "{resolution_deg}"',
+        "",
+    ]
+
+    if coordinate == "cartesian":
+        lines += [
+            '  ff.SetCoordinateSystemType "cartesian"',
+        ]
+    else:
+        lines += [
+            '  ff.SetCoordinateSystemType "spherical"',
+        ]
+
+    lines += [
+        "",
+        "  ' Export 3D pattern data to ASCII file",
+        f'  ff.ASCIIExportAsSource "farfield_3d_{frequency}GHz.txt"',
+        "",
+        '  Debug.Print "3D pattern exported at ' + f'{frequency} GHz"',
+        '  Debug.Print "Resolution: ' + f'{resolution_deg} deg"',
+        '  Debug.Print "Format: theta, phi, gain_abs, gain_theta, gain_phi, phase_theta, phase_phi"',
+        "End Sub",
+    ]
+    script.add_raw("\n".join(lines))
+    return script.build()
+
+
+def _build_current_distribution_vba(frequency: float, component: str | None) -> str:
+    """Build VBA script for extracting volume current distribution."""
+    monitor_name = f"current (f={frequency})"
+    tree_path = f"2D/3D Results\\Current\\{monitor_name}"
+    script = VBAScript()
+    script.add_comment(f"Extract volume current distribution at {frequency} GHz")
+    script.add_comment(f"Result tree path: {tree_path}")
+    if component:
+        script.add_comment(f"Component filter: {component}")
+    script.add_blank()
+
+    lines = [
+        "Sub Main()",
+        f'  SelectTreeItem "{tree_path}"',
+        "",
+    ]
+    if component:
+        lines += [
+            f"  ' Filter to component: {component}",
+            f'  Plot3DSetComponent "{component}"',
+            "",
+        ]
+    lines += [
+        "  ' Configure 3D plot for current density visualization",
+        '  Plot.PlotView "top"',
+        "",
+        "  ' Export current distribution data",
+        "  Dim ascii As Object",
+        "  Set ascii = ASCIIExport",
+        "  ascii.Reset",
+        f'  ascii.FileName "current_distribution_{frequency}GHz.txt"',
+        '  ascii.Execute',
+        "",
+        '  Debug.Print "Volume current distribution exported for ' + f'{frequency} GHz"',
+        "End Sub",
+    ]
     script.add_raw("\n".join(lines))
     return script.build()
 
@@ -812,7 +1900,7 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
     Returns a list of TextContent with JSON-encoded results.
     """
     try:
-        return await _handle_dispatch(name, arguments, client)
+        return await _handle_impl(name, arguments, client)
     except Exception as e:
         return [TextContent(
             type="text",
@@ -820,8 +1908,8 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
         )]
 
 
-async def _handle_dispatch(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:
-    """Dispatch a result tool call (inner implementation)."""
+async def _handle_impl(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:
+    """Internal implementation of the result tool handler."""
 
     # ------------------------------------------------------------------
     # cst_get_s_parameters
@@ -1324,6 +2412,661 @@ async def _handle_dispatch(name: str, arguments: dict, client: CSTClient) -> lis
         })
 
     # ------------------------------------------------------------------
+    # cst_get_s_parameter_phase
+    # ------------------------------------------------------------------
+    if name == "cst_get_s_parameter_phase":
+        port_in = arguments.get("port_in", 1)
+        port_out = arguments.get("port_out", 1)
+        unwrap = arguments.get("unwrap", False)
+
+        validate_port_number(port_in)
+        validate_port_number(port_out)
+
+        tree_path = _s_param_tree_path(port_out, port_in)
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["s_parameter"] = f"S{port_out},{port_in}"
+            result["data_type"] = "phase"
+            result["unwrap"] = unwrap
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_s_parameter_phase_vba(port_out, port_in, unwrap)
+        return _text({
+            "status": "offline",
+            "s_parameter": f"S{port_out},{port_in}",
+            "data_type": "phase",
+            "unwrap": unwrap,
+            "tree_path": tree_path,
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. Phase is output in degrees. If unwrap is "
+                "enabled, 360-degree discontinuities are removed for "
+                "continuous phase response."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_group_delay
+    # ------------------------------------------------------------------
+    if name == "cst_get_group_delay":
+        port_in = arguments.get("port_in", 1)
+        port_out = arguments.get("port_out", 1)
+
+        validate_port_number(port_in)
+        validate_port_number(port_out)
+
+        tree_path = _s_param_tree_path(port_out, port_in)
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["s_parameter"] = f"S{port_out},{port_in}"
+            result["data_type"] = "group_delay"
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_group_delay_vba(port_out, port_in)
+        return _text({
+            "status": "offline",
+            "s_parameter": f"S{port_out},{port_in}",
+            "data_type": "group_delay",
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Group delay is computed as tau = -d(phase)/d(2*pi*f) "
+                    "from the S-parameter phase. The phase is unwrapped "
+                    "before differentiation. A constant group delay indicates "
+                    "linear phase response (no dispersion). Units are "
+                    "nanoseconds."
+                ),
+            },
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. Output is printed as freq_ghz,tau_ns to the "
+                "CST message window."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_pattern_cut
+    # ------------------------------------------------------------------
+    if name == "cst_get_pattern_cut":
+        frequency = arguments["frequency"]
+        plane = arguments.get("plane", "E")
+        phi_cut = arguments.get("phi_cut", 0.0)
+        theta_cut = arguments.get("theta_cut", 90.0)
+
+        validate_frequency(frequency)
+
+        valid_planes = ["E", "H", "custom"]
+        if plane not in valid_planes:
+            return _text({
+                "status": "error",
+                "message": f"Invalid plane '{plane}'. Must be one of: {valid_planes}",
+            })
+
+        tree_path = _farfield_tree_path(frequency)
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["frequency_ghz"] = frequency
+            result["plane"] = plane
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_pattern_cut_vba(frequency, plane, phi_cut, theta_cut)
+        return _text({
+            "status": "offline",
+            "frequency_ghz": frequency,
+            "plane": plane,
+            "phi_cut": phi_cut if plane == "custom" else (0.0 if plane == "E" else 90.0),
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "A pattern cut shows the radiation pattern in a single "
+                    "plane. E-plane (phi=0) shows the pattern in the plane "
+                    "containing the E-field vector. H-plane (phi=90) shows "
+                    "the pattern in the plane containing the H-field vector."
+                ),
+                "plane_definitions": {
+                    "E-plane": "phi=0 degrees (contains E-field vector)",
+                    "H-plane": "phi=90 degrees (contains H-field vector)",
+                    "custom": "arbitrary phi or theta cut",
+                },
+            },
+            "prerequisite": (
+                "A farfield monitor must be defined at the desired frequency "
+                "BEFORE running the simulation."
+            ),
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. Output is printed as angle,gain_dBi."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_cross_polarization
+    # ------------------------------------------------------------------
+    if name == "cst_get_cross_polarization":
+        frequency = arguments["frequency"]
+        definition = arguments.get("definition", "Ludwig3")
+
+        validate_frequency(frequency)
+
+        valid_defs = ["Ludwig3", "Ludwig2", "circular"]
+        if definition not in valid_defs:
+            return _text({
+                "status": "error",
+                "message": f"Invalid definition '{definition}'. Must be one of: {valid_defs}",
+            })
+
+        tree_path = _farfield_tree_path(frequency)
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["frequency_ghz"] = frequency
+            result["definition"] = definition
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_cross_polarization_vba(frequency, definition)
+        return _text({
+            "status": "offline",
+            "frequency_ghz": frequency,
+            "definition": definition,
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Cross-polarization discrimination (XPD) measures the "
+                    "isolation between the desired (co-pol) and undesired "
+                    "(cross-pol) polarization components. A higher XPD "
+                    "indicates better polarization purity."
+                ),
+                "definitions": {
+                    "Ludwig3": (
+                        "Most common for linearly polarized antennas. "
+                        "Co-pol and cross-pol defined relative to the "
+                        "antenna's principal polarization."
+                    ),
+                    "Ludwig2": (
+                        "Used for aperture antennas. Co-pol and cross-pol "
+                        "defined in the aperture plane coordinates."
+                    ),
+                    "circular": (
+                        "For circularly polarized antennas. RHCP/LHCP "
+                        "decomposition."
+                    ),
+                },
+            },
+            "prerequisite": (
+                "A farfield monitor must be defined at the desired frequency "
+                "BEFORE running the simulation."
+            ),
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. Output includes co-pol gain, cross-pol level, "
+                "and XPD in dB."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_axial_ratio
+    # ------------------------------------------------------------------
+    if name == "cst_get_axial_ratio":
+        frequency = arguments["frequency"]
+        mode = arguments.get("mode", "vs_angle")
+        theta_cut = arguments.get("theta_cut", 0.0)
+        phi_cut = arguments.get("phi_cut", 0.0)
+
+        validate_frequency(frequency)
+
+        valid_modes = ["vs_angle", "vs_frequency"]
+        if mode not in valid_modes:
+            return _text({
+                "status": "error",
+                "message": f"Invalid mode '{mode}'. Must be one of: {valid_modes}",
+            })
+
+        tree_path = _farfield_tree_path(frequency)
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["frequency_ghz"] = frequency
+            result["mode"] = mode
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_axial_ratio_vba(frequency, mode, theta_cut, phi_cut)
+        return _text({
+            "status": "offline",
+            "frequency_ghz": frequency,
+            "mode": mode,
+            "theta_cut": theta_cut,
+            "phi_cut": phi_cut,
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Axial ratio (AR) characterizes the quality of circular "
+                    "polarization. AR = 0 dB is perfect CP, AR = infinity "
+                    "is linear polarization. An AR < 3 dB is generally "
+                    "considered acceptable for CP operation."
+                ),
+                "reference": {
+                    "AR = 0 dB": "Perfect circular polarization",
+                    "AR < 3 dB": "Acceptable CP (IEEE standard)",
+                    "AR = 3 dB": "Half-power axial ratio",
+                    "AR > 10 dB": "Essentially linear polarization",
+                },
+            },
+            "prerequisite": (
+                "A farfield monitor must be defined at the desired frequency "
+                "BEFORE running the simulation."
+            ),
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_surface_current
+    # ------------------------------------------------------------------
+    if name == "cst_get_surface_current":
+        frequency = arguments["frequency"]
+        component = arguments.get("component")
+
+        validate_frequency(frequency)
+
+        monitor_name = f"surface-current (f={frequency})"
+        tree_path = f"2D/3D Results\\Surface Current\\{monitor_name}"
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["frequency_ghz"] = frequency
+            result["tree_path"] = tree_path
+            if component:
+                result["component"] = component
+            return _text(result)
+
+        vba = _build_surface_current_vba(frequency, component)
+        return _text({
+            "status": "offline",
+            "frequency_ghz": frequency,
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Surface current density shows the distribution of "
+                    "currents on conductor surfaces. Useful for understanding "
+                    "antenna radiation mechanisms, identifying hot spots, "
+                    "and optimizing conductor placement."
+                ),
+            },
+            "prerequisite": (
+                "A surface current monitor (Surfacecurrent) must be defined "
+                "at the desired frequency BEFORE running the simulation. "
+                "Use cst_add_field_monitor with monitor_type='Surfacecurrent'."
+            ),
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. The surface current data is exported to a "
+                "text file."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_efficiency_breakdown
+    # ------------------------------------------------------------------
+    if name == "cst_get_efficiency_breakdown":
+        frequency = arguments["frequency"]
+        validate_frequency(frequency)
+
+        tree_path = _farfield_tree_path(frequency)
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["frequency_ghz"] = frequency
+            result["data_type"] = "efficiency_breakdown"
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_efficiency_breakdown_vba(frequency)
+        return _text({
+            "status": "offline",
+            "frequency_ghz": frequency,
+            "data_type": "efficiency_breakdown",
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Detailed efficiency breakdown separates total loss into "
+                    "individual contributions: mismatch loss (impedance "
+                    "mismatch at feed), conductor loss (ohmic losses in "
+                    "metal), and dielectric loss (losses in substrate and "
+                    "other dielectrics). This helps identify the dominant "
+                    "loss mechanism for design optimization."
+                ),
+                "loss_budget": {
+                    "mismatch_loss": "Loss due to impedance mismatch (1-|S11|^2)",
+                    "conductor_loss": "Ohmic loss in metal conductors",
+                    "dielectric_loss": "Loss in dielectric materials (tan_d)",
+                    "radiation_efficiency": "P_radiated / P_accepted",
+                    "total_efficiency": "P_radiated / P_stimulated",
+                },
+            },
+            "prerequisite": (
+                "A farfield monitor must be defined at the desired frequency "
+                "BEFORE running the simulation."
+            ),
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. The script reads both far-field efficiency "
+                "and power budget data for a complete loss breakdown."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_time_domain_signal
+    # ------------------------------------------------------------------
+    if name == "cst_get_time_domain_signal":
+        port = arguments.get("port", 1)
+        signal_type = arguments.get("signal_type", "reflected")
+        port_out = arguments.get("port_out", 1)
+
+        validate_port_number(port)
+        if signal_type == "transmitted":
+            validate_port_number(port_out)
+
+        valid_signal_types = ["incident", "reflected", "transmitted"]
+        if signal_type not in valid_signal_types:
+            return _text({
+                "status": "error",
+                "message": (
+                    f"Invalid signal_type '{signal_type}'. "
+                    f"Must be one of: {valid_signal_types}"
+                ),
+            })
+
+        if signal_type == "incident":
+            tree_path = f"1D Results\\Port signals\\i{port}"
+        elif signal_type == "reflected":
+            tree_path = f"1D Results\\Port signals\\o{port},{port}"
+        else:
+            tree_path = f"1D Results\\Port signals\\o{port_out},{port}"
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["port"] = port
+            result["signal_type"] = signal_type
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_time_domain_signal_vba(port, signal_type, port_out)
+        return _text({
+            "status": "offline",
+            "port": port,
+            "signal_type": signal_type,
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Time-domain port signals show the transient waveforms "
+                    "at each port. CST stores these under '1D Results\\Port "
+                    "signals'. Incident signals are named 'iX', reflected "
+                    "signals 'oX,X', and transmitted signals 'oY,X' where "
+                    "X is the excitation port and Y is the observation port."
+                ),
+                "signal_types": {
+                    "incident (iX)": "Excitation pulse at port X",
+                    "reflected (oX,X)": "Reflected signal back at port X",
+                    "transmitted (oY,X)": "Signal transmitted from port X to port Y",
+                },
+            },
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after a time-domain "
+                "simulation has completed. Output is time (ns) vs amplitude. "
+                "This tool requires a time-domain solver run."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_smith_chart_data
+    # ------------------------------------------------------------------
+    if name == "cst_get_smith_chart_data":
+        port = arguments.get("port", 1)
+        z0 = arguments.get("z0", 50.0)
+
+        validate_port_number(port)
+        if z0 <= 0:
+            return _text({
+                "status": "error",
+                "message": f"Reference impedance z0 must be positive, got {z0}",
+            })
+
+        tree_path = _s_param_tree_path(port, port)
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["port"] = port
+            result["z0"] = z0
+            result["data_type"] = "smith_chart"
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_smith_chart_vba(port, z0)
+        return _text({
+            "status": "offline",
+            "port": port,
+            "z0": z0,
+            "data_type": "smith_chart",
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Smith chart data is computed from the S11 reflection "
+                    "coefficient. The normalized impedance is: "
+                    "z = Z/Z0 = (1+S11)/(1-S11). The VBA script extracts "
+                    "S11 data and computes the corresponding impedance for "
+                    "Smith chart visualization."
+                ),
+                "formulas": {
+                    "Z": "Z0 * (1 + S11) / (1 - S11)",
+                    "z_normalized": "Z / Z0 = (1 + S11) / (1 - S11)",
+                    "Gamma": "S11 = (Z - Z0) / (Z + Z0)",
+                },
+            },
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. Output is freq, Re(Z), Im(Z), |S11| for "
+                "each frequency point."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_bandwidth
+    # ------------------------------------------------------------------
+    if name == "cst_get_bandwidth":
+        port = arguments.get("port", 1)
+        threshold_db = arguments.get("threshold_db", -10.0)
+        criterion = arguments.get("criterion", "S11")
+
+        validate_port_number(port)
+
+        valid_criteria = ["S11", "VSWR"]
+        if criterion not in valid_criteria:
+            return _text({
+                "status": "error",
+                "message": f"Invalid criterion '{criterion}'. Must be one of: {valid_criteria}",
+            })
+
+        tree_path = _s_param_tree_path(port, port)
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["port"] = port
+            result["threshold_db"] = threshold_db
+            result["criterion"] = criterion
+            result["data_type"] = "bandwidth"
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_bandwidth_vba(port, threshold_db, criterion)
+        return _text({
+            "status": "offline",
+            "port": port,
+            "threshold_db": threshold_db,
+            "criterion": criterion,
+            "data_type": "bandwidth",
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Impedance bandwidth is the frequency range where the "
+                    "antenna meets the specified matching criterion. Common "
+                    "thresholds are S11 < -10 dB (VSWR < 2:1) for most "
+                    "applications, and S11 < -6 dB (VSWR < 3:1) for "
+                    "mobile/wideband applications."
+                ),
+                "output_fields": {
+                    "center_freq_ghz": "Center of the matched band",
+                    "bandwidth_mhz": "Absolute bandwidth in MHz",
+                    "fractional_bandwidth_pct": "BW/f_center * 100",
+                    "f_lower_ghz": "Lower edge of matched band",
+                    "f_upper_ghz": "Upper edge of matched band",
+                },
+            },
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. The script finds where S11 crosses the "
+                "threshold and computes the bandwidth metrics."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_radiation_pattern_3d
+    # ------------------------------------------------------------------
+    if name == "cst_get_radiation_pattern_3d":
+        frequency = arguments["frequency"]
+        resolution_deg = arguments.get("resolution_deg", 5.0)
+        coordinate = arguments.get("coordinate", "spherical")
+
+        validate_frequency(frequency)
+
+        if resolution_deg <= 0 or resolution_deg > 90:
+            return _text({
+                "status": "error",
+                "message": (
+                    f"Invalid resolution_deg {resolution_deg}. "
+                    "Must be between 0 (exclusive) and 90."
+                ),
+            })
+
+        valid_coords = ["spherical", "cartesian"]
+        if coordinate not in valid_coords:
+            return _text({
+                "status": "error",
+                "message": f"Invalid coordinate '{coordinate}'. Must be one of: {valid_coords}",
+            })
+
+        tree_path = _farfield_tree_path(frequency)
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["frequency_ghz"] = frequency
+            result["resolution_deg"] = resolution_deg
+            result["coordinate"] = coordinate
+            result["tree_path"] = tree_path
+            return _text(result)
+
+        vba = _build_radiation_pattern_3d_vba(frequency, resolution_deg, coordinate)
+        return _text({
+            "status": "offline",
+            "frequency_ghz": frequency,
+            "resolution_deg": resolution_deg,
+            "coordinate": coordinate,
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Full 3D radiation pattern export provides gain values "
+                    "over the complete sphere. In spherical coordinates, "
+                    "data is organized as (theta, phi, gain). The angular "
+                    "resolution determines the density of the exported data."
+                ),
+                "export_format": {
+                    "spherical": "theta (0-180), phi (0-360), gain (dBi)",
+                    "cartesian": "x, y, z, gain (dBi)",
+                },
+                "data_size_estimate": (
+                    f"Approximately {int(180/resolution_deg) * int(360/resolution_deg)} "
+                    f"data points at {resolution_deg} deg resolution"
+                ),
+            },
+            "prerequisite": (
+                "A farfield monitor must be defined at the desired frequency "
+                "BEFORE running the simulation."
+            ),
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. The 3D pattern is exported to a text file "
+                "that can be imported into visualization tools."
+            ),
+        })
+
+    # ------------------------------------------------------------------
+    # cst_get_current_distribution
+    # ------------------------------------------------------------------
+    if name == "cst_get_current_distribution":
+        frequency = arguments["frequency"]
+        component = arguments.get("component")
+
+        validate_frequency(frequency)
+
+        monitor_name = f"current (f={frequency})"
+        tree_path = f"2D/3D Results\\Current\\{monitor_name}"
+
+        if client.connected:
+            result = client.get_result(tree_path)
+            result["frequency_ghz"] = frequency
+            result["tree_path"] = tree_path
+            if component:
+                result["component"] = component
+            return _text(result)
+
+        vba = _build_current_distribution_vba(frequency, component)
+        return _text({
+            "status": "offline",
+            "frequency_ghz": frequency,
+            "tree_path": tree_path,
+            "result_tree_info": {
+                "description": (
+                    "Volume current distribution shows the current density "
+                    "inside dielectric and lossy materials. Unlike surface "
+                    "current (which shows currents on conductor surfaces), "
+                    "volume current reveals displacement and conduction "
+                    "currents within the volume of the structure."
+                ),
+            },
+            "prerequisite": (
+                "A current density monitor (Current) must be defined at the "
+                "desired frequency BEFORE running the simulation. "
+                "Use cst_add_field_monitor with monitor_type='Current'."
+            ),
+            "vba_script": vba,
+            "instructions": (
+                "Run the VBA script in CST Studio Suite after the simulation "
+                "has completed. The current distribution data is exported to "
+                "a text file."
+            ),
+        })
+
+    # ------------------------------------------------------------------
     # Unknown tool
     # ------------------------------------------------------------------
     return _text({
@@ -1335,8 +3078,6 @@ async def _handle_dispatch(name: str, arguments: dict, client: CSTClient) -> lis
 # ---------------------------------------------------------------------------
 # Registration helper (used by tools/__init__.py)
 # ---------------------------------------------------------------------------
-
-_TOOL_NAMES: set[str] = {tool.name for tool in TOOLS}
 
 
 def register_result_tools(server: Server, client: CSTClient) -> None:

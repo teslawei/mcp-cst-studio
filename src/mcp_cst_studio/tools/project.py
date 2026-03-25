@@ -7,14 +7,15 @@ navigating, exporting, and checking connection status of CST projects.
 from __future__ import annotations
 
 import json
+import re
 from typing import TYPE_CHECKING
 
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.types import ExportFormat, ProjectType
-from mcp_cst_studio.validators import validate_file_path, validate_name
-from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
+from mcp_cst_studio.validators import validate_file_path, ValidationError
+from mcp_cst_studio.vba_builder import VBABuilder, VBAScript, _escape_vba_string
 
 if TYPE_CHECKING:
     from mcp.server import Server
@@ -208,7 +209,7 @@ def _build_create_vba(path: str, project_type: str) -> str:
 
     lines = [
         "Sub Main()",
-        f'  Dim sPath As String',
+        '  Dim sPath As String',
         f'  sPath = "{path}"',
         "",
         "  ' Open a new project from the appropriate template",
@@ -216,7 +217,7 @@ def _build_create_vba(path: str, project_type: str) -> str:
         "  OpenNewProject",
         "",
         "  ' Save the project to the specified path",
-        f'  SaveAs sPath, False',
+        '  SaveAs sPath, False',
         "End Sub",
     ]
     script.add_raw("\n".join(lines))
@@ -260,20 +261,39 @@ def _build_save_vba(path: str | None) -> str:
     return script.build()
 
 
+# Regex for valid tree paths: alphanumeric, spaces, backslashes, forward slashes,
+# underscores, hyphens, dots, and commas (for result paths like "S1,1")
+_VALID_TREE_PATH_RE = re.compile(r"^[A-Za-z0-9 \\/_.,-]{0,200}$")
+
+
+def _validate_tree_path(path: str) -> str:
+    """Validate a CST navigation tree path."""
+    if not _VALID_TREE_PATH_RE.match(path):
+        raise ValidationError(
+            f"Invalid tree path '{path}': must contain only alphanumeric, "
+            "spaces, backslashes, forward slashes, underscores, hyphens, "
+            "dots, and commas (max 200 chars)"
+        )
+    return path
+
+
 def _build_tree_vba(tree_path: str | None) -> str:
     """Build VBA script for listing navigation tree items."""
     script = VBAScript()
     root = tree_path or ""
     if root:
+        _validate_tree_path(root)
         script.add_comment(f"List CST navigation tree items under: {root}")
     else:
         script.add_comment("List CST navigation tree root items")
     script.add_blank()
 
+    safe_root = _escape_vba_string(root)
+
     lines = [
         "Sub Main()",
-        f'  Dim sPath As String',
-        f'  sPath = "{root}"',
+        '  Dim sPath As String',
+        f'  sPath = "{safe_root}"',
         "",
         "  SelectTreeItem sPath",
         "  Dim nItems As Long",
@@ -369,7 +389,7 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
     Returns a list of TextContent with JSON-encoded results.
     """
     try:
-        return await _handle_dispatch(name, arguments, client)
+        return _handle_impl(name, arguments, client)
     except Exception as e:
         return [TextContent(
             type="text",
@@ -377,9 +397,7 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
         )]
 
 
-async def _handle_dispatch(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:
-    """Dispatch a project tool call (inner implementation)."""
-
+def _handle_impl(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:
     # ------------------------------------------------------------------
     # cst_create_project
     # ------------------------------------------------------------------

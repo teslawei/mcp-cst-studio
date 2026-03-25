@@ -140,3 +140,50 @@ async def test_discrete_port_basic(client: CSTClient):
     vba = data.get("vba", "")
     assert "DiscretePort" in vba
     assert ".Create" in vba
+
+
+@pytest.mark.asyncio
+async def test_add_plane_wave(client: CSTClient):
+    from mcp_cst_studio.tools.ports import handle
+
+    result = await handle(
+        "cst_add_plane_wave",
+        {"theta": 0, "phi": 0, "polarization": "linear"},
+        client,
+    )
+    assert len(result) == 1
+    data = json.loads(result[0].text)
+    vba = data.get("vba", "")
+    assert "PlaneWave" in vba
+
+
+@pytest.mark.asyncio
+async def test_list_ports(client: CSTClient):
+    from mcp_cst_studio.tools.ports import handle
+
+    result = await handle("cst_list_ports", {}, client)
+    assert len(result) == 1
+    data = json.loads(result[0].text)
+    assert "status" in data
+
+
+@pytest.mark.asyncio
+async def test_delete_port(client: CSTClient):
+    from mcp_cst_studio.tools.ports import handle
+
+    result = await handle("cst_delete_port", {"port_number": 1}, client)
+    assert len(result) == 1
+    data = json.loads(result[0].text)
+    vba = data.get("vba", "")
+    assert "Port" in vba
+    assert "Delete" in vba
+
+
+@pytest.mark.asyncio
+async def test_unknown_tool_returns_error(client: CSTClient):
+    from mcp_cst_studio.tools.ports import handle
+
+    result = await handle("cst_nonexistent_port_tool", {}, client)
+    assert len(result) == 1
+    data = json.loads(result[0].text)
+    assert data.get("status") == "error"

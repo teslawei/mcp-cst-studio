@@ -8,7 +8,7 @@ from mcp.server import Server
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.types import ExcitationType, SolverType
+from mcp_cst_studio.types import ExcitationType
 from mcp_cst_studio.validators import (
     validate_enum_value,
     validate_positive,
@@ -165,10 +165,113 @@ TOOLS: list[Tool] = [
             "required": [],
         },
     ),
+    Tool(
+        name="cst_configure_eigenmode_advanced",
+        description=(
+            "Advanced eigenmode solver configuration for higher-order modes. Use this for "
+            "waveguide mode analysis, cavity resonator design, and filter characterization "
+            "where fine control over mode count, frequency targeting, and solver order is needed."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "num_modes": {
+                    "type": "integer",
+                    "description": "Number of eigenmodes to compute (1-50, default 5)",
+                    "default": 5,
+                },
+                "frequency_estimate_ghz": {
+                    "type": "number",
+                    "description": "Frequency estimate in GHz to target specific modes (optional)",
+                },
+                "accuracy": {
+                    "type": "number",
+                    "description": "Solver accuracy target (default 1e-6)",
+                    "default": 1e-6,
+                },
+                "solver_order": {
+                    "type": "integer",
+                    "description": "Solver order 1-3 for higher accuracy (default 1)",
+                    "default": 1,
+                },
+            },
+            "required": [],
+        },
+    ),
+    Tool(
+        name="cst_configure_ie_solver_advanced",
+        description=(
+            "Advanced Integral Equation solver configuration for electrically large structures. "
+            "Provides control over preconditioner, MLFMM acceleration, and low-frequency "
+            "stabilization for installed antenna performance and large-platform RCS analysis."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "accuracy": {
+                    "type": "number",
+                    "description": "Iterative solver residual target (default 1e-3)",
+                    "default": 1e-3,
+                },
+                "max_iterations": {
+                    "type": "integer",
+                    "description": "Maximum number of solver iterations (default 1000)",
+                    "default": 1000,
+                },
+                "preconditioner": {
+                    "type": "string",
+                    "enum": ["ILU", "Multilevel"],
+                    "description": "Preconditioner type (default ILU)",
+                    "default": "ILU",
+                },
+                "low_frequency_stabilization": {
+                    "type": "boolean",
+                    "description": "Enable low-frequency stabilization for broadband problems (default false)",
+                    "default": False,
+                },
+                "mlfmm": {
+                    "type": "boolean",
+                    "description": "Enable Multi-Level Fast Multipole Method for large problems (default true)",
+                    "default": True,
+                },
+            },
+            "required": [],
+        },
+    ),
+    Tool(
+        name="cst_configure_multilayer_solver",
+        description=(
+            "Configure the solver for planar multilayer structures. Optimised for antenna-on-PCB, "
+            "frequency selective surfaces (FSS), and radome analysis using the frequency domain "
+            "solver with multilayer-specific settings."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "f_min": {
+                    "type": "number",
+                    "description": "Minimum frequency in GHz",
+                },
+                "f_max": {
+                    "type": "number",
+                    "description": "Maximum frequency in GHz",
+                },
+                "num_samples": {
+                    "type": "integer",
+                    "description": "Number of frequency samples (default 501)",
+                    "default": 501,
+                },
+                "sweep_type": {
+                    "type": "string",
+                    "enum": ["Interpolated", "Discrete"],
+                    "description": "Frequency sweep type (default Interpolated)",
+                    "default": "Interpolated",
+                },
+            },
+            "required": ["f_min", "f_max"],
+        },
+    ),
 ]
-
-_TOOL_NAMES = {t.name for t in TOOLS}
-
 
 async def handle(
     name: str, arguments: dict, client: CSTClient
@@ -185,13 +288,17 @@ async def handle(
             return _configure_integral_equation(arguments, client)
         elif name == "cst_get_solver_info":
             return _get_solver_info(arguments, client)
+        elif name == "cst_configure_eigenmode_advanced":
+            return _configure_eigenmode_advanced(arguments, client)
+        elif name == "cst_configure_ie_solver_advanced":
+            return _configure_ie_solver_advanced(arguments, client)
+        elif name == "cst_configure_multilayer_solver":
+            return _configure_multilayer_solver(arguments, client)
 
-        return [
-            TextContent(
-                type="text",
-                text=json.dumps({"error": f"Unknown solver tool: {name}"}),
-            )
-        ]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": f"Unknown solver tool: {name}"}, indent=2),
+        )]
     except Exception as e:
         return [TextContent(
             type="text",
@@ -252,7 +359,7 @@ def _configure_frequency_domain(arguments: dict, client: CSTClient) -> list[Text
             TextContent(
                 type="text",
                 text=json.dumps(
-                    {"error": f"f_min ({f_min}) must be less than f_max ({f_max})"}
+                    {"status": "error", "message": f"f_min ({f_min}) must be less than f_max ({f_max})"}
                 ),
             )
         ]
@@ -263,7 +370,7 @@ def _configure_frequency_domain(arguments: dict, client: CSTClient) -> list[Text
             TextContent(
                 type="text",
                 text=json.dumps(
-                    {"error": f"Invalid sweep_type '{sweep_type}'. Valid: {valid_sweeps}"}
+                    {"status": "error", "message": f"Invalid sweep_type '{sweep_type}'. Valid: {valid_sweeps}"}
                 ),
             )
         ]
@@ -387,6 +494,110 @@ def _get_solver_info(arguments: dict, client: CSTClient) -> list[TextContent]:
             },
         }
 
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+def _configure_eigenmode_advanced(arguments: dict, client: CSTClient) -> list[TextContent]:
+    num_modes = int(arguments.get("num_modes", 5))
+    frequency_estimate = arguments.get("frequency_estimate_ghz")
+    accuracy = float(arguments.get("accuracy", 1e-6))
+    solver_order = int(arguments.get("solver_order", 1))
+
+    validate_range(num_modes, 1, 50, "num_modes")
+    validate_positive(accuracy, "accuracy")
+    validate_range(solver_order, 1, 3, "solver_order")
+
+    vba = VBABuilder("EigenmodeSolver")
+    vba.set_number("SetNumberOfModes", num_modes)
+    if frequency_estimate is not None:
+        freq_est = float(frequency_estimate)
+        validate_positive(freq_est, "frequency_estimate_ghz")
+        vba.set_number("SetFrequencyTarget", freq_est)
+    vba.set_number("SetAccuracy", accuracy)
+    vba.set_bool("SetMeshAdaption", False)
+    vba.set_number("SetSolverOrder", solver_order)
+    script = vba.build()
+
+    result = client.execute_vba(script)
+    result["solver"] = "Eigenmode (Advanced)"
+    result["num_modes"] = num_modes
+    result["accuracy"] = accuracy
+    result["solver_order"] = solver_order
+    if frequency_estimate is not None:
+        result["frequency_estimate_ghz"] = float(frequency_estimate)
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+def _configure_ie_solver_advanced(arguments: dict, client: CSTClient) -> list[TextContent]:
+    accuracy = float(arguments.get("accuracy", 1e-3))
+    max_iterations = int(arguments.get("max_iterations", 1000))
+    preconditioner = arguments.get("preconditioner", "ILU")
+    low_freq_stab = arguments.get("low_frequency_stabilization", False)
+    mlfmm = arguments.get("mlfmm", True)
+
+    validate_positive(accuracy, "accuracy")
+    validate_range(max_iterations, 1, 100000, "max_iterations")
+    valid_preconditioners = ["ILU", "Multilevel"]
+    if preconditioner not in valid_preconditioners:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error",
+            "message": f"Invalid preconditioner '{preconditioner}'. Valid: {valid_preconditioners}",
+        }))]
+
+    vba = VBABuilder("IESolver")
+    vba.set_number("SetAccuracy", accuracy)
+    vba.set_number("SetMaxIterations", max_iterations)
+    vba.set("SetPreconditionerType", preconditioner)
+    vba.set_bool("SetLowFrequencyStabilization", low_freq_stab)
+    vba.set_bool("SetMLFMM", mlfmm)
+    script = vba.build()
+
+    result = client.execute_vba(script)
+    result["solver"] = "Integral Equation (Advanced)"
+    result["accuracy"] = accuracy
+    result["max_iterations"] = max_iterations
+    result["preconditioner"] = preconditioner
+    result["low_frequency_stabilization"] = low_freq_stab
+    result["mlfmm"] = mlfmm
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+def _configure_multilayer_solver(arguments: dict, client: CSTClient) -> list[TextContent]:
+    f_min = float(arguments.get("f_min", 0))
+    f_max = float(arguments.get("f_max", 0))
+    num_samples = int(arguments.get("num_samples", 501))
+    sweep_type = arguments.get("sweep_type", "Interpolated")
+
+    validate_positive(f_max, "f_max")
+    if f_min < 0:
+        f_min = 0
+    if f_min >= f_max:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error",
+            "message": f"f_min ({f_min}) must be less than f_max ({f_max})",
+        }))]
+    validate_positive(num_samples, "num_samples")
+    valid_sweeps = ["Interpolated", "Discrete"]
+    if sweep_type not in valid_sweeps:
+        return [TextContent(type="text", text=json.dumps({
+            "status": "error",
+            "message": f"Invalid sweep_type '{sweep_type}'. Valid: {valid_sweeps}",
+        }))]
+
+    vba = VBABuilder("FDSolver")
+    vba.set_number("FrequencyMin", f_min)
+    vba.set_number("FrequencyMax", f_max)
+    vba.set_number("Samples", num_samples)
+    vba.set("SweepType", sweep_type)
+    vba.set_bool("UseMultilayerSolver", True)
+    script = vba.build()
+
+    result = client.execute_vba(script)
+    result["solver"] = "Multilayer (Frequency Domain)"
+    result["f_min_ghz"] = f_min
+    result["f_max_ghz"] = f_max
+    result["num_samples"] = num_samples
+    result["sweep_type"] = sweep_type
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
 

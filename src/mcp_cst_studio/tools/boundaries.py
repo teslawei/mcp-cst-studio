@@ -8,7 +8,7 @@ from mcp.server import Server
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.validators import validate_frequency, validate_non_negative
+from mcp_cst_studio.validators import validate_frequency, validate_non_negative, validate_range
 from mcp_cst_studio.vba_builder import VBABuilder
 
 _BOUNDARY_TYPES = [
@@ -153,10 +153,60 @@ TOOLS: list[Tool] = [
             "required": ["f_min", "f_max"],
         },
     ),
+    Tool(
+        name="cst_set_periodic_boundary",
+        description=(
+            "Configure periodic boundary conditions with optional phase shift for "
+            "unit cell simulation. Sets X and Y boundaries to periodic and configures "
+            "the phase shift for infinite array, FSS, and metasurface analysis."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "phase_x_deg": {
+                    "type": "number",
+                    "description": "Phase shift in X direction in degrees (default 0)",
+                    "default": 0,
+                },
+                "phase_y_deg": {
+                    "type": "number",
+                    "description": "Phase shift in Y direction in degrees (default 0)",
+                    "default": 0,
+                },
+            },
+            "required": [],
+        },
+    ),
+    Tool(
+        name="cst_set_floquet_port_advanced",
+        description=(
+            "Configure advanced Floquet port settings for periodic structures. "
+            "Controls the number of Floquet modes and scan angle for phased array "
+            "element simulation and oblique incidence analysis."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "num_modes": {
+                    "type": "integer",
+                    "description": "Number of Floquet modes (2-20, default 2)",
+                    "default": 2,
+                },
+                "scan_theta_deg": {
+                    "type": "number",
+                    "description": "Scan elevation angle in degrees (default 0)",
+                    "default": 0,
+                },
+                "scan_phi_deg": {
+                    "type": "number",
+                    "description": "Scan azimuth angle in degrees (default 0)",
+                    "default": 0,
+                },
+            },
+            "required": [],
+        },
+    ),
 ]
-
-_TOOL_NAMES = {t.name for t in TOOLS}
-
 
 async def handle(
     name: str, arguments: dict, client: CSTClient
@@ -171,13 +221,15 @@ async def handle(
             return await _handle_set_symmetry(arguments, client)
         if name == "cst_set_frequency_range":
             return await _handle_set_frequency_range(arguments, client)
+        if name == "cst_set_periodic_boundary":
+            return await _handle_set_periodic_boundary(arguments, client)
+        if name == "cst_set_floquet_port_advanced":
+            return await _handle_set_floquet_port_advanced(arguments, client)
 
-        return [
-            TextContent(
-                type="text",
-                text=json.dumps({"error": f"Unknown boundary tool: {name}"}),
-            )
-        ]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": f"Unknown boundary tool: {name}"}, indent=2),
+        )]
     except Exception as e:
         return [TextContent(
             type="text",
@@ -306,6 +358,57 @@ async def _handle_set_frequency_range(
         "f_min_ghz": f_min,
         "f_max_ghz": f_max,
     }
+
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+async def _handle_set_periodic_boundary(
+    arguments: dict, client: CSTClient
+) -> list[TextContent]:
+    phase_x = float(arguments.get("phase_x_deg", 0))
+    phase_y = float(arguments.get("phase_y_deg", 0))
+
+    vba = (
+        VBABuilder("Boundary")
+        .set("Xmin", "periodic")
+        .set("Xmax", "periodic")
+        .set("Ymin", "periodic")
+        .set("Ymax", "periodic")
+        .set_number("XPeriodicShift", phase_x)
+        .set_number("YPeriodicShift", phase_y)
+    )
+    script = vba.build()
+    result = client.execute_vba(script)
+    result["boundary_type"] = "periodic"
+    result["phase_x_deg"] = phase_x
+    result["phase_y_deg"] = phase_y
+
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+async def _handle_set_floquet_port_advanced(
+    arguments: dict, client: CSTClient
+) -> list[TextContent]:
+    num_modes = int(arguments.get("num_modes", 2))
+    scan_theta = float(arguments.get("scan_theta_deg", 0))
+    scan_phi = float(arguments.get("scan_phi_deg", 0))
+
+    validate_range(num_modes, 2, 20, "num_modes")
+    validate_range(scan_theta, -90, 90, "scan_theta_deg")
+    validate_range(scan_phi, -360, 360, "scan_phi_deg")
+
+    vba = (
+        VBABuilder("FloquetPort")
+        .call("Reset")
+        .set_number("SetNumberOfModes", num_modes)
+        .set_double("SetScanAngle", scan_theta, scan_phi)
+    )
+    script = vba.build()
+    result = client.execute_vba(script)
+    result["floquet_port"] = "advanced"
+    result["num_modes"] = num_modes
+    result["scan_theta_deg"] = scan_theta
+    result["scan_phi_deg"] = scan_phi
 
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
