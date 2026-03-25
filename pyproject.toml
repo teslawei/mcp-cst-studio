@@ -26,13 +26,14 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
 ]
 
+dependencies = [
+    "mcp>=1.0.0",
+]
+
 [project.urls]
 Homepage = "https://github.com/RFingAdam/mcp-cst-studio"
 Repository = "https://github.com/RFingAdam/mcp-cst-studio"
 Issues = "https://github.com/RFingAdam/mcp-cst-studio/issues"
-dependencies = [
-    "mcp>=1.0.0",
-]
 
 [project.optional-dependencies]
 dev = [
