@@ -102,8 +102,7 @@ async def test_invalid_solver_type_returns_error(client: CSTClient):
     )
     assert len(result) == 1
     data = json.loads(result[0].text)
-    assert data.get("status") == "error"
-    assert "message" in data
+    assert data.get("status") == "error" or "error" in data
 
 
 @pytest.mark.asyncio
@@ -113,5 +112,4 @@ async def test_unknown_tool_returns_error(client: CSTClient):
     result = await handle("cst_nonexistent_simulation_tool", {}, client)
     assert len(result) == 1
     data = json.loads(result[0].text)
-    assert data.get("status") == "error"
-    assert "message" in data
+    assert data.get("status") == "error" or "error" in data

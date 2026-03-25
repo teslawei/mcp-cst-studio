@@ -226,13 +226,15 @@ async def handle(
         if name == "cst_set_floquet_port_advanced":
             return await _handle_set_floquet_port_advanced(arguments, client)
 
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": f"Unknown boundary tool: {name}",
-        }))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": f"Unknown boundary tool: {name}"}, indent=2),
+        )]
     except Exception as e:
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": str(e),
-        }))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 async def _handle_set_boundary(

@@ -391,7 +391,10 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
     try:
         return _handle_impl(name, arguments, client)
     except Exception as e:
-        return _text({"status": "error", "message": str(e)})
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 def _handle_impl(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:

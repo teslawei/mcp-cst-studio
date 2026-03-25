@@ -43,14 +43,26 @@ def mock_client() -> CSTClient:
     )
     client = CSTClient(config=config)
     project = MagicMock()
+    # The merged execute_vba uses model3d.add_to_history (not modeler)
+    project.model3d.add_to_history.return_value = None
+    # Keep modeler mock for backward compat with any test that checks it
     project.modeler.execute_vba_code.return_value = "ok"
     client._project = project
     client._project_path = r"C:\test\project.cst"
 
     # Patch CST_AVAILABLE at the module level so client.connected returns True
-    patcher = patch("mcp_cst_studio.cst_client.CST_AVAILABLE", True)
-    patcher.start()
+    patcher_cst = patch("mcp_cst_studio.cst_client.CST_AVAILABLE", True)
+    # Patch DialogWatcher so it doesn't try real Win32 calls
+    patcher_dw = patch("mcp_cst_studio.cst_client.DialogWatcher")
+    patcher_cst.start()
+    mock_dw_cls = patcher_dw.start()
+    mock_dw_instance = MagicMock()
+    mock_dw_instance.get_log.return_value = []
+    mock_dw_cls.return_value = mock_dw_instance
 
     yield client
 
-    patcher.stop()
+    # Clean up class-level dialog watcher state to prevent leaking
+    CSTClient._dialog_watcher = None
+    patcher_dw.stop()
+    patcher_cst.stop()

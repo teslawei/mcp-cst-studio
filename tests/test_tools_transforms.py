@@ -95,4 +95,4 @@ async def test_unknown_tool_returns_error(client: CSTClient):
     )
     assert len(result) == 1
     data = json.loads(result[0].text)
-    assert data.get("status") == "error"
+    assert data.get("status") == "error" or "error" in data

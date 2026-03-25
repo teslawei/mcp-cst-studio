@@ -295,13 +295,15 @@ async def handle(
         elif name == "cst_configure_multilayer_solver":
             return _configure_multilayer_solver(arguments, client)
 
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": f"Unknown solver tool: {name}",
-        }))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": f"Unknown solver tool: {name}"}, indent=2),
+        )]
     except Exception as e:
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": str(e),
-        }))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 def _configure_time_domain(arguments: dict, client: CSTClient) -> list[TextContent]:

@@ -99,6 +99,9 @@ _OPERATION_MAP: dict[str, str] = {
     "cst_boolean_insert": "Insert",
 }
 
+_TOOL_NAMES: set[str] = set(_OPERATION_MAP)
+
+
 # ---------------------------------------------------------------------------
 # Handler
 # ---------------------------------------------------------------------------
@@ -108,41 +111,39 @@ async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a boolean operation tool call."""
-    operation = _OPERATION_MAP.get(name)
-    if operation is None:
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": f"Unknown boolean tool: {name}",
-        }))]
-
     try:
-        return _handle_boolean(operation, arguments, client)
+        operation = _OPERATION_MAP.get(name)
+        if operation is None:
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Unknown boolean tool: {name}"}),
+                )
+            ]
+
+        solid1: str = arguments.get("solid1", "")
+        solid2: str = arguments.get("solid2", "")
+
+        # Validate both solid references (raises ValidationError on bad input)
+        validate_component_path(solid1)
+        validate_component_path(solid2)
+
+        # Boolean ops use direct Solid.<Op> calls — no With block needed
+        vba = VBABuilder("Solid")
+        vba.raw_line(f'Solid.{operation} "{solid1}", "{solid2}"')
+        script = vba.build()
+
+        result = client.execute_vba(script)
+        result["operation"] = operation.lower()
+        result["solid1"] = solid1
+        result["solid2"] = solid2
+
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
     except Exception as e:
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": str(e),
-        }))]
-
-
-def _handle_boolean(
-    operation: str, arguments: dict, client: CSTClient
-) -> list[TextContent]:
-    solid1: str = arguments.get("solid1", "")
-    solid2: str = arguments.get("solid2", "")
-
-    # Validate both solid references (raises ValidationError on bad input)
-    validate_component_path(solid1)
-    validate_component_path(solid2)
-
-    # Boolean ops use direct Solid.<Op> calls — no With block needed
-    vba = VBABuilder("Solid")
-    vba.raw_line(f'Solid.{operation} "{solid1}", "{solid2}"')
-    script = vba.build()
-
-    result = client.execute_vba(script)
-    result["operation"] = operation.lower()
-    result["solid1"] = solid1
-    result["solid2"] = solid2
-
-    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 # ---------------------------------------------------------------------------

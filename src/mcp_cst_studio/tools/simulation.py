@@ -109,6 +109,7 @@ TOOLS: list[Tool] = [
     ),
 ]
 
+_TOOL_NAMES = {tool.name for tool in TOOLS}
 
 
 def _build_solver_start_vba(solver_type: str | None) -> str:
@@ -168,13 +169,17 @@ async def handle(
         if name == "cst_stop_simulation":
             return _handle_simple_solver_command("Stop", client)
 
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": f"Unknown simulation tool: {name}",
-        }))]
+        return [
+            TextContent(
+                type="text",
+                text=json.dumps({"error": f"Unknown simulation tool: {name}"}),
+            )
+        ]
     except Exception as e:
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": str(e),
-        }))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 def _handle_run_simulation(
@@ -188,8 +193,7 @@ def _handle_run_simulation(
             TextContent(
                 type="text",
                 text=json.dumps({
-                    "status": "error",
-                    "message": f"Invalid solver_type '{solver_type}'",
+                    "error": f"Invalid solver_type '{solver_type}'",
                     "valid_options": _VALID_SOLVER_TYPES,
                 }),
             )
