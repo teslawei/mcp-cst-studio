@@ -1079,34 +1079,25 @@ def _build_export_result_vba(
             "End Sub",
         ]
         script.add_raw("\n".join(lines))
-    elif fmt == "csv":
-        # Use CST's native ASCIIExport for CSV
-        export_vba = (
-            VBABuilder("ASCIIExport")
-            .call("Reset")
-            .set("FileName", output_file)
-            .set("Mode", "CSV")
-        )
-        script.add_comment(f'SelectTreeItem "{result_path}"')
-        script.add_block(export_vba)
-        call_vba = VBABuilder("ASCIIExport")
-        call_vba.raw_line(f'SelectTreeItem "{result_path}"')
-        call_vba.raw_line('ASCIIExport.Execute')
-        script.add_block(call_vba)
-    else:
-        # txt format — use CST's native ASCIIExport with FixedWidth mode
-        export_vba = (
-            VBABuilder("ASCIIExport")
-            .call("Reset")
-            .set("FileName", output_file)
-            .set("Mode", "FixedWidth")
-        )
-        script.add_comment(f'SelectTreeItem "{result_path}"')
-        script.add_block(export_vba)
-        call_vba = VBABuilder("ASCIIExport")
-        call_vba.raw_line(f'SelectTreeItem "{result_path}"')
-        call_vba.raw_line('ASCIIExport.Execute')
-        script.add_block(call_vba)
+    elif fmt in ("csv", "txt"):
+        # Use CST's built-in ASCIIExport object — avoids raw file I/O
+        # that would be blocked by the VBA security validator.
+        # Note: CST ASCIIExport always uses space-separated columns regardless
+        # of SetfileType. SetSeparator/StepWidth do NOT exist in CST 2025.
+        lines = [
+            "Sub Main()",
+            f'  SelectTreeItem "{result_path}"',
+            "",
+            f"  ' Export result data via ASCIIExport ({fmt.upper()})",
+            "  With ASCIIExport",
+            "    .Reset",
+            f'    .FileName "{output_file}"',
+            f'    .SetfileType "{fmt}"',
+            "    .Execute",
+            "  End With",
+            "End Sub",
+        ]
+        script.add_raw("\n".join(lines))
 
     return script.build()
 
@@ -1911,7 +1902,10 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
     try:
         return await _handle_impl(name, arguments, client)
     except Exception as e:
-        return _text({"status": "error", "message": str(e)})
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 async def _handle_impl(name: str, arguments: dict, client: CSTClient) -> list[TextContent]:

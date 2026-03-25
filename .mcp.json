@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "cst-studio": {
+      "command": "mcp-cst-studio",
+      "env": {
+        "CST_PATH": "C:\\Program Files (x86)\\CST Studio Suite 2025",
+        "CST_WORK_DIR": "C:\\cst_projects",
+        "CST_VERSION": "2025"
+      }
+    }
+  }
+}

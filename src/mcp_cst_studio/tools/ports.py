@@ -24,7 +24,13 @@ TOOLS: list[Tool] = [
         name="cst_add_waveguide_port",
         description=(
             "Add a waveguide port for S-parameter excitation. Defines a port face on "
-            "the boundary of the simulation domain for guided-wave excitation."
+            "the boundary of the simulation domain for guided-wave excitation. "
+            "IMPORTANT: The port plane should be at or near the edge of the model "
+            "geometry. Ground planes and substrates must NOT extend past the port "
+            "plane in the port's orientation direction, or VBA execution may hang. "
+            "For microstrip feeds: place the port at the end of the feed line where "
+            "the ground/substrate terminates. Use Coordinates='Free' for ports not "
+            "aligned to the bounding box. Valid orientations: xmin/xmax/ymin/ymax/zmin/zmax."
         ),
         inputSchema={
             "type": "object",
@@ -66,6 +72,17 @@ TOOLS: list[Tool] = [
                     "type": "integer",
                     "description": "Number of modes to consider (default 1)",
                     "default": 1,
+                },
+                "coordinates": {
+                    "type": "string",
+                    "enum": ["Free", "Full", "Picks"],
+                    "description": (
+                        "Coordinate mode. 'Free' allows arbitrary placement using "
+                        "the specified ranges (required for microstrip/coplanar ports). "
+                        "'Full' maps the port to the full bounding-box face. "
+                        "'Picks' uses previously picked geometry faces. Default: 'Free'."
+                    ),
+                    "default": "Free",
                 },
             },
             "required": [
@@ -366,13 +383,15 @@ async def handle(
         if name == "cst_add_multipin_port":
             return await _handle_multipin_port(arguments, client)
 
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": f"Unknown port tool: {name}",
-        }))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": f"Unknown port tool: {name}"}, indent=2),
+        )]
     except Exception as e:
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": str(e),
-        }))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 async def _handle_waveguide_port(
@@ -394,11 +413,18 @@ async def _handle_waveguide_port(
     if mode_number < 1:
         raise ValueError(f"mode_number must be >= 1, got {mode_number}")
 
+    coordinates = arguments.get("coordinates", "Free")
+    if coordinates not in ("Free", "Full", "Picks"):
+        raise ValueError(
+            f"Invalid coordinates '{coordinates}'. Must be Free, Full, or Picks."
+        )
+
     vba = (
         VBABuilder("Port")
         .call("Reset")
         .set_number("PortNumber", port_number)
         .set("Label", "")
+        .set("Coordinates", coordinates)
         .set("Orientation", orientation)
         .set_double("Xrange", x_min, x_max)
         .set_double("Yrange", y_min, y_max)
@@ -411,6 +437,7 @@ async def _handle_waveguide_port(
     result["port_type"] = "waveguide"
     result["port_number"] = port_number
     result["orientation"] = orientation
+    result["coordinates"] = coordinates
 
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
@@ -439,12 +466,10 @@ async def _handle_discrete_port(
         .set_number("PortNumber", port_number)
         .set("Type", port_type)
         .set_number("Impedance", impedance)
-        .set_number("Point1X", x1)
-        .set_number("Point1Y", y1)
-        .set_number("Point1Z", z1)
-        .set_number("Point2X", x2)
-        .set_number("Point2Y", y2)
-        .set_number("Point2Z", z2)
+        .set_triple("Point1", x1, y1, z1)
+        .set_triple("Point2", x2, y2, z2)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script = vba.build()
@@ -512,12 +537,8 @@ async def _handle_lumped_element(
 
     vba = (
         vba
-        .set_number("Point1X", x1)
-        .set_number("Point1Y", y1)
-        .set_number("Point1Z", z1)
-        .set_number("Point2X", x2)
-        .set_number("Point2Y", y2)
-        .set_number("Point2Z", z2)
+        .set_triple("Point1", x1, y1, z1)
+        .set_triple("Point2", x2, y2, z2)
         .call("Create")
     )
     script = vba.build()

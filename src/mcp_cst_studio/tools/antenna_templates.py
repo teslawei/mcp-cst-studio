@@ -16,7 +16,7 @@ from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
-from mcp_cst_studio.validators import validate_frequency, validate_positive
+from mcp_cst_studio.validators import validate_name, validate_frequency, validate_positive
 
 # ---------------------------------------------------------------------------
 # Physical constants
@@ -378,7 +378,7 @@ TOOLS: list[Tool] = [
                 },
                 "flare_angle": {
                     "type": "number",
-                    "description": "Full flare angle of each arm in degrees (default 60)",
+                    "description": "Flare half-angle of each arm in degrees (default 60)",
                     "default": 60,
                 },
                 "arm_length_mm": {
@@ -405,6 +405,7 @@ TOOLS: list[Tool] = [
     ),
 ]
 
+_TOOL_NAMES = {t.name for t in TOOLS}
 
 # ---------------------------------------------------------------------------
 # VBA helper utilities
@@ -420,12 +421,10 @@ def _build_units_block() -> VBABuilder:
     """Standard CST units: mm, GHz, ns, K."""
     return (
         VBABuilder("Units")
-        .call("Reset")
         .set("Geometry", "mm")
         .set("Frequency", "ghz")
         .set("Time", "ns")
         .set("TemperatureUnit", "kelvin")
-        .call("Apply")
     )
 
 
@@ -454,6 +453,7 @@ def _build_field_monitor(freq_ghz: float, label: str = "farfield") -> VBABuilder
         VBABuilder("Monitor")
         .call("Reset")
         .set("Name", f"{label} (f={freq_ghz})")
+        .set("Dimension", "Volume")
         .set("Domain", "Frequency")
         .set("FieldType", "Farfield")
         .set_number("MonitorValue", freq_ghz)
@@ -467,11 +467,47 @@ def _build_efield_monitor(freq_ghz: float) -> VBABuilder:
         VBABuilder("Monitor")
         .call("Reset")
         .set("Name", f"e-field (f={freq_ghz})")
+        .set("Dimension", "Volume")
         .set("Domain", "Frequency")
         .set("FieldType", "Efield")
         .set_number("MonitorValue", freq_ghz)
         .call("Create")
     )
+
+
+def _build_substrate_material(name: str, eps_r: float, tan_d: float) -> VBABuilder:
+    """Define a substrate material."""
+    return (
+        VBABuilder("Material")
+        .call("Reset")
+        .set("Name", name)
+        .set("Type", "Normal")
+        .set_number("Epsilon", eps_r)
+        .set_number("TanD", tan_d)
+        .set_number("Mu", 1)
+        .set_triple("Colour", 0.94, 0.82, 0.64)
+        .set_number("Transparency", 0.5)
+        .call("Create")
+    )
+
+
+def _store_design_parameters(params: dict[str, float]) -> str:
+    """Generate VBA StoreParameter calls for antenna design parameters.
+
+    Stores the computed dimensions as CST project parameters, making them
+    visible in CST's parameter list and available for parametric sweeps
+    or optimization via StoreParameter + DeleteResults + Rebuild.
+    """
+    lines = ["' --- Design Parameters ---"]
+    for name, value in params.items():
+        # Format numbers without scientific notation for CST compatibility
+        if isinstance(value, float):
+            val_str = f"{value:.6g}"
+        else:
+            val_str = str(value)
+        lines.append(f'StoreParameter "{name}", "{val_str}"')
+    lines.append("")
+    return "\n".join(lines)
 
 
 def _build_substrate_material_block(name: str, eps_r: float, tan_d: float) -> str:
@@ -485,7 +521,7 @@ def _build_substrate_material_block(name: str, eps_r: float, tan_d: float) -> st
     vba.set_number("Mu", 1)
     vba.set_number("TanDM", 0)
     vba.set_number("Sigma", 0)
-    vba.set("Colour", "0.94")
+    vba.set_triple("Colour", 0.94, 0.82, 0.64)
     vba.set_number("Transparency", 0.5)
     vba.call("Create")
     return vba.build()
@@ -513,8 +549,6 @@ def _build_cylinder(component: str, name: str, material: str,
                     outer_r: float, inner_r: float,
                     range_min: float, range_max: float) -> str:
     """Build a Cylinder VBA block."""
-    axis_range_map = {"x": "Xrange", "y": "Yrange", "z": "Zrange"}
-    range_prop = axis_range_map.get(axis.lower(), "Zrange")
     return (
         VBABuilder("Cylinder")
         .call("Reset")
@@ -527,7 +561,7 @@ def _build_cylinder(component: str, name: str, material: str,
         .set_number("Xcenter", cx)
         .set_number("Ycenter", cy)
         .set_number("Zcenter", cz)
-        .set_double(range_prop, range_min, range_max)
+        .set_double("Zrange", range_min, range_max)
         .call("Create")
     ).build()
 
@@ -580,10 +614,7 @@ def _build_patch_antenna(args: dict) -> str:
     # R_in(y0) = R_edge * cos^2(pi*y0/L)
     # For 50 ohm: y0 = (L/pi) * arccos(sqrt(50/R_edge))
     # R_edge ~ 90 * eps_r^2 / (eps_r - 1) * (L/W)^2  (approximate)
-    if abs(eps_r - 1.0) < 1e-6:
-        R_edge = 200.0  # free-space approximation for air substrate
-    else:
-        R_edge = 90 * (eps_r ** 2) / (eps_r - 1) * (L / W) ** 2
+    R_edge = 90 * (eps_r ** 2) / (eps_r - 1) * (L / W) ** 2
     if R_edge > 50:
         inset_depth = (L / math.pi) * math.acos(math.sqrt(50 / R_edge))
     else:
@@ -591,17 +622,14 @@ def _build_patch_antenna(args: dict) -> str:
 
     # Feed line width (approximate 50-ohm microstrip)
     # Use Wheeler's approximation
-    # Wheeler synthesis for 50Ω microstrip feed width
     A_w = (50 / 60) * math.sqrt((eps_r + 1) / 2) + (eps_r - 1) / (eps_r + 1) * (0.23 + 0.11 / eps_r)
-    B_w = 377 * math.pi / (2 * 50 * math.sqrt(eps_r))
-    # Try narrow-strip first; if W/h >= 2, switch to wide-strip formula
-    wh = 8 * math.exp(A_w) / (math.exp(2 * A_w) - 2)
-    if wh >= 2:
-        wh = (2 / math.pi) * (
-            B_w - 1 - math.log(2 * B_w - 1)
-            + (eps_r - 1) / (2 * eps_r) * (math.log(B_w - 1) + 0.39 - 0.61 / eps_r)
-        )
-    feed_w = max(h * wh, 0.5)  # minimum practical width
+    feed_w = h * max(
+        8 * math.exp(A_w) / (math.exp(2 * A_w) - 2),
+        (2 / math.pi) * (
+            (eps_r - 1) / (2 * eps_r) * (math.log(2 * A_w - 1) + 0.39 - 0.61 / eps_r)
+        ) if A_w > 1.52 else 1.0,
+    )
+    feed_w = max(feed_w, 0.5)  # minimum practical width
 
     # Inset gap width
     inset_gap = feed_w * 0.5
@@ -639,6 +667,19 @@ def _build_patch_antenna(args: dict) -> str:
 
     # Frequency range
     script.add_block(_build_frequency_range(f_min, f_max))
+
+    # Store design parameters in CST for parametric sweeps/optimization
+    script.add_raw(_store_design_parameters({
+        "patch_W": round(W, 4),
+        "patch_L": round(L, 4),
+        "sub_h": round(h, 4),
+        "eps_r": eps_r,
+        "feed_w": round(feed_w, 4),
+        "inset_depth": round(inset_depth, 4),
+        "inset_gap": round(inset_gap, 4),
+        "gnd_x": round(gnd_x, 4),
+        "gnd_y": round(gnd_y, 4),
+    }))
 
     # Substrate material
     script.add_raw(_build_substrate_material_block("Substrate_FR4", eps_r, tan_d))
@@ -683,13 +724,6 @@ def _build_patch_antenna(args: dict) -> str:
             -L / 2 - 0.1, -L / 2 + inset_depth,
             h, h + 0.035,
         ))
-        # Boolean subtract inset slots from patch
-        sub_vba_l = VBABuilder("Solid")
-        sub_vba_l.call_with_args("Subtract", "Antenna:Patch", "Antenna:InsetSlotL")
-        script.add_block(sub_vba_l)
-        sub_vba_r = VBABuilder("Solid")
-        sub_vba_r.call_with_args("Subtract", "Antenna:Patch", "Antenna:InsetSlotR")
-        script.add_block(sub_vba_r)
         # Feed line on top of substrate from edge to patch
         feed_length = gnd_y / 2 - L / 2
         script.add_raw(_build_brick(
@@ -704,6 +738,7 @@ def _build_patch_antenna(args: dict) -> str:
             .call("Reset")
             .set_number("PortNumber", 1)
             .set("Label", "")
+            .set("Coordinates", "Free")
             .set("Orientation", "ymin")
             .set_double("Xrange", -feed_w * 3, feed_w * 3)
             .set_double("Yrange", -gnd_y / 2, -gnd_y / 2)
@@ -726,6 +761,7 @@ def _build_patch_antenna(args: dict) -> str:
             .call("Reset")
             .set_number("PortNumber", 1)
             .set("Label", "")
+            .set("Coordinates", "Free")
             .set("Orientation", "ymin")
             .set_double("Xrange", -feed_w * 3, feed_w * 3)
             .set_double("Yrange", -gnd_y / 2, -gnd_y / 2)
@@ -752,12 +788,10 @@ def _build_patch_antenna(args: dict) -> str:
             .set_number("PortNumber", 1)
             .set("Type", "SParameter")
             .set_number("Impedance", 50)
-            .set_number("Point1X", probe_x)
-            .set_number("Point1Y", probe_y)
-            .set_number("Point1Z", 0)
-            .set_number("Point2X", probe_x)
-            .set_number("Point2Y", probe_y)
-            .set_number("Point2Z", h)
+            .set_triple("Point1", probe_x, probe_y, 0)
+            .set_triple("Point2", probe_x, probe_y, h)
+            .set_number("Radius", 0.5)
+            .set_bool("Monitor", True)
             .call("Create")
         )
         script.add_block(port_vba)
@@ -854,12 +888,10 @@ def _build_dipole_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", 0)
-        .set_number("Point1Y", 0)
-        .set_number("Point1Z", -gap / 2)
-        .set_number("Point2X", 0)
-        .set_number("Point2Y", 0)
-        .set_number("Point2Z", gap / 2)
+        .set_triple("Point1", 0, 0, -gap / 2)
+        .set_triple("Point2", 0, 0, gap / 2)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)
@@ -955,12 +987,10 @@ def _build_monopole_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", 0)
-        .set_number("Point1Y", 0)
-        .set_number("Point1Z", -0.5)
-        .set_number("Point2X", 0)
-        .set_number("Point2Y", 0)
-        .set_number("Point2Z", 0)
+        .set_triple("Point1", 0, 0, -0.5)
+        .set_triple("Point2", 0, 0, 0)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)
@@ -1019,10 +1049,11 @@ def _build_horn_antenna(args: dict) -> str:
     B1 = math.sqrt(A_phys / aspect)
     A1 = A_phys / B1
 
-    # Horn length from Balanis Eq. 13-48a/b — optimum pyramidal horn
-    # R_H depends on H-plane aperture A1, R_E depends on E-plane aperture B1
-    R_H = A1 ** 2 / (3 * lam0)  # H-plane slant length
-    R_E = B1 ** 2 / (2 * lam0)  # E-plane slant length
+    # Horn length from Balanis — optimum horn
+    # R_H (E-plane slant) = B1^2 / (2*lambda), R_E similar
+    # Axial length L ~ R_H for moderate gain
+    R_H = B1 ** 2 / (2 * lam0)
+    R_E = A1 ** 2 / (3 * lam0)
     horn_length = max(R_H, R_E)
     horn_length = max(horn_length, 2 * lam0)  # minimum practical length
 
@@ -1095,32 +1126,32 @@ def _build_horn_antenna(args: dict) -> str:
         "' Create rear profile (waveguide end) at z=0",
     ]
 
-    # Rear profile curve (at z=0)
+    # Rear profile curve
     rear_curve = (
-        VBABuilder("Polygon3D")
+        VBABuilder("Polygon")
         .call("Reset")
         .set("Name", "rear_profile")
         .set("Curve", "horn_curves")
-        .set_triple("Point", -a_wg / 2, -b_wg / 2, 0)
-        .set_triple("LineTo", a_wg / 2, -b_wg / 2, 0)
-        .set_triple("LineTo", a_wg / 2, b_wg / 2, 0)
-        .set_triple("LineTo", -a_wg / 2, b_wg / 2, 0)
-        .set_triple("LineTo", -a_wg / 2, -b_wg / 2, 0)
+        .set_double("Point", -a_wg / 2, -b_wg / 2)
+        .set_double("LineTo", a_wg / 2, -b_wg / 2)
+        .set_double("LineTo", a_wg / 2, b_wg / 2)
+        .set_double("LineTo", -a_wg / 2, b_wg / 2)
+        .set_double("LineTo", -a_wg / 2, -b_wg / 2)
         .call("Create")
     )
     script.add_block(rear_curve)
 
-    # Front profile curve (at z=horn_length)
+    # Front profile curve
     front_curve = (
-        VBABuilder("Polygon3D")
+        VBABuilder("Polygon")
         .call("Reset")
         .set("Name", "front_profile")
         .set("Curve", "horn_curves")
-        .set_triple("Point", -A1 / 2, -B1 / 2, horn_length)
-        .set_triple("LineTo", A1 / 2, -B1 / 2, horn_length)
-        .set_triple("LineTo", A1 / 2, B1 / 2, horn_length)
-        .set_triple("LineTo", -A1 / 2, B1 / 2, horn_length)
-        .set_triple("LineTo", -A1 / 2, -B1 / 2, horn_length)
+        .set_double("Point", -A1 / 2, -B1 / 2)
+        .set_double("LineTo", A1 / 2, -B1 / 2)
+        .set_double("LineTo", A1 / 2, B1 / 2)
+        .set_double("LineTo", -A1 / 2, B1 / 2)
+        .set_double("LineTo", -A1 / 2, -B1 / 2)
         .call("Create")
     )
     script.add_block(front_curve)
@@ -1144,6 +1175,7 @@ def _build_horn_antenna(args: dict) -> str:
         .call("Reset")
         .set_number("PortNumber", 1)
         .set("Label", "")
+        .set("Coordinates", "Free")
         .set("Orientation", "zmin")
         .set_double("Xrange", -a_wg / 2, a_wg / 2)
         .set_double("Yrange", -b_wg / 2, b_wg / 2)
@@ -1184,12 +1216,12 @@ def _build_yagi_antenna(args: dict) -> str:
     director_base_len = 0.440 * lam0  # first director
 
     # Spacings
-    refl_spacing = 0.20 * lam0  # reflector behind driven (NBS/Viezbicke)
-    dir_spacing_base = 0.25 * lam0
+    refl_spacing = 0.25 * lam0  # reflector behind driven
+    dir_spacing_base = 0.34 * lam0
     dir_spacing_inc = 0.0  # uniform spacing for simplicity
 
     # Director progressive shortening
-    dir_shortening = 0.01 * lam0  # per element
+    dir_shortening = 0.005 * lam0  # per element
 
     f_min = freq * 0.8
     f_max = freq * 1.2
@@ -1240,10 +1272,27 @@ def _build_yagi_antenna(args: dict) -> str:
             .set_number("Xcenter", 0)
             .set_number("Ycenter", 0)
             .set_number("Zcenter", z_pos)
-            .set_double("Xrange", -length / 2, length / 2)
+            .set_double("Zrange", z_pos - wire_r, z_pos + wire_r)
+        )
+        # Cylinder axis is x, so use Xrange for the element length
+        # Reset — CST Cylinder Zrange is always the axis range,
+        # but we set Axis=x, so we use the range on x
+        elem_vba2 = (
+            VBABuilder("Cylinder")
+            .call("Reset")
+            .set("Name", name)
+            .set("Component", "Yagi")
+            .set("Material", "PEC")
+            .set("Axis", "x")
+            .set_number("Outerradius", wire_r)
+            .set_number("Innerradius", 0)
+            .set_number("Xcenter", 0)
+            .set_number("Ycenter", 0)
+            .set_number("Zcenter", z_pos)
+            .set_double("Zrange", -length / 2, length / 2)
             .call("Create")
         )
-        script.add_block(elem_vba)
+        script.add_block(elem_vba2)
 
     # Discrete port at driven element center (small gap)
     gap = wire_r * 4
@@ -1253,12 +1302,10 @@ def _build_yagi_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", 0)
-        .set_number("Point1Y", -gap / 2)
-        .set_number("Point1Z", 0)
-        .set_number("Point2X", 0)
-        .set_number("Point2Y", gap / 2)
-        .set_number("Point2Z", 0)
+        .set_triple("Point1", 0, -gap / 2, 0)
+        .set_triple("Point2", 0, gap / 2, 0)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)
@@ -1405,12 +1452,10 @@ def _build_helix_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", radius)
-        .set_number("Point1Y", 0)
-        .set_number("Point1Z", 0)
-        .set_number("Point2X", radius)
-        .set_number("Point2Y", 0)
-        .set_number("Point2Z", -0.5)
+        .set_triple("Point1", radius, 0, 0)
+        .set_triple("Point2", radius, 0, -0.5)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)
@@ -1570,12 +1615,10 @@ def _build_vivaldi_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", 0)
-        .set_number("Point1Y", -slot_min / 2)
-        .set_number("Point1Z", h)
-        .set_number("Point2X", 0)
-        .set_number("Point2Y", slot_min / 2)
-        .set_number("Point2Z", h)
+        .set_triple("Point1", 0, -slot_min / 2, h)
+        .set_triple("Point2", 0, slot_min / 2, h)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)
@@ -1653,10 +1696,6 @@ def _build_slot_antenna(args: dict) -> str:
         -slot_width / 2, slot_width / 2,
         -0.035, 0,
     ))
-    # Boolean subtract slot from ground plane
-    sub_vba = VBABuilder("Solid")
-    sub_vba.call_with_args("Subtract", "Slot:GroundPlane", "Slot:SlotCut")
-    script.add_block(sub_vba)
 
     # Feed line crossing the slot (perpendicular, on z=-0.035 side)
     script.add_raw(_build_brick(
@@ -1673,12 +1712,10 @@ def _build_slot_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", 0)
-        .set_number("Point1Y", -gnd_size / 2)
-        .set_number("Point1Z", -0.07)
-        .set_number("Point2X", 0)
-        .set_number("Point2Y", -gnd_size / 2)
-        .set_number("Point2Z", 0)
+        .set_triple("Point1", 0, -gnd_size / 2, -0.07)
+        .set_triple("Point2", 0, -gnd_size / 2, 0)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)
@@ -1780,12 +1817,10 @@ def _build_ifa_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", feed_x)
-        .set_number("Point1Y", 0)
-        .set_number("Point1Z", 0)
-        .set_number("Point2X", feed_x)
-        .set_number("Point2Y", 0)
-        .set_number("Point2Z", ifa_height)
+        .set_triple("Point1", feed_x, 0, 0)
+        .set_triple("Point2", feed_x, 0, ifa_height)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)
@@ -1902,12 +1937,10 @@ def _build_pifa_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", feed_x)
-        .set_number("Point1Y", 0)
-        .set_number("Point1Z", 0)
-        .set_number("Point2X", feed_x)
-        .set_number("Point2Y", 0)
-        .set_number("Point2Z", pifa_height)
+        .set_triple("Point1", feed_x, 0, 0)
+        .set_triple("Point2", feed_x, 0, pifa_height)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)
@@ -2072,12 +2105,10 @@ def _build_spiral_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", p1x)
-        .set_number("Point1Y", p1y)
-        .set_number("Point1Z", 0)
-        .set_number("Point2X", p2x)
-        .set_number("Point2Y", p2y)
-        .set_number("Point2Z", 0)
+        .set_triple("Point1", p1x, p1y, 0)
+        .set_triple("Point2", p2x, p2y, 0)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)
@@ -2185,12 +2216,10 @@ def _build_bowtie_antenna(args: dict) -> str:
         .set_number("PortNumber", 1)
         .set("Type", "SParameter")
         .set_number("Impedance", 50)
-        .set_number("Point1X", -gap / 2)
-        .set_number("Point1Y", 0)
-        .set_number("Point1Z", 0)
-        .set_number("Point2X", gap / 2)
-        .set_number("Point2Y", 0)
-        .set_number("Point2Z", 0)
+        .set_triple("Point1", -gap / 2, 0, 0)
+        .set_triple("Point2", gap / 2, 0, 0)
+        .set_number("Radius", 0.5)
+        .set_bool("Monitor", True)
         .call("Create")
     )
     script.add_block(port_vba)

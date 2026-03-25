@@ -206,33 +206,33 @@ async def handle(
     name: str, arguments: dict, client: CSTClient
 ) -> list[TextContent]:
     """Handle a mesh tool call."""
-    if name == "cst_set_mesh_type":
-        handler = _set_mesh_type
-    elif name == "cst_set_mesh_density":
-        handler = _set_mesh_density
-    elif name == "cst_add_mesh_refinement":
-        handler = _add_mesh_refinement
-    elif name == "cst_set_adaptive_mesh":
-        handler = _set_adaptive_mesh
-    elif name == "cst_get_mesh_info":
-        handler = _get_mesh_info
-    elif name == "cst_get_mesh_quality":
-        handler = _get_mesh_quality
-    elif name == "cst_set_pml_properties":
-        handler = _set_pml_properties
-    elif name == "cst_add_fixpoint_mesh":
-        handler = _add_fixpoint_mesh
-    else:
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": f"Unknown mesh tool: {name}",
-        }))]
-
     try:
-        return handler(arguments, client)
+        if name == "cst_set_mesh_type":
+            return _set_mesh_type(arguments, client)
+        elif name == "cst_set_mesh_density":
+            return _set_mesh_density(arguments, client)
+        elif name == "cst_add_mesh_refinement":
+            return _add_mesh_refinement(arguments, client)
+        elif name == "cst_set_adaptive_mesh":
+            return _set_adaptive_mesh(arguments, client)
+        elif name == "cst_get_mesh_info":
+            return _get_mesh_info(arguments, client)
+        elif name == "cst_get_mesh_quality":
+            return _get_mesh_quality(arguments, client)
+        elif name == "cst_set_pml_properties":
+            return _set_pml_properties(arguments, client)
+        elif name == "cst_add_fixpoint_mesh":
+            return _add_fixpoint_mesh(arguments, client)
+
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": f"Unknown mesh tool: {name}"}, indent=2),
+        )]
     except Exception as e:
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": str(e),
-        }))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 def _set_mesh_type(arguments: dict, client: CSTClient) -> list[TextContent]:

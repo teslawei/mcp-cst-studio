@@ -10,6 +10,7 @@ from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.validators import (
+    ValidationError,
     validate_name,
     validate_non_negative,
     validate_positive,
@@ -508,7 +509,7 @@ def _load_material_db() -> dict[str, list[dict]]:
     if _material_db_cache is not None:
         return _material_db_cache
 
-    db: dict[str, list[dict]] = {"metals": [], "dielectrics": []}
+    db: dict[str, list[dict]] = {"metals": [], "dielectrics": [], "substrates": []}
 
     metals_path = DATA_DIR / "common_metals.json"
     if metals_path.exists():
@@ -525,7 +526,8 @@ def _load_material_db() -> dict[str, list[dict]]:
     substrates_path = DATA_DIR / "substrates.json"
     if substrates_path.exists():
         with substrates_path.open() as f:
-            db["substrates"] = json.load(f)
+            data = json.load(f)
+        db["substrates"] = data.get("substrates", [])
 
     _material_db_cache = db
     return db
@@ -594,13 +596,12 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
         if name == "cst_list_ferrite_materials":
             return _handle_list_ferrite_materials(arguments)
 
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": f"Unknown material tool: {name}",
-        }))]
+        raise ValueError(f"Unknown material tool: {name}")
     except Exception as e:
-        return [TextContent(type="text", text=json.dumps({
-            "status": "error", "message": str(e),
-        }))]
+        return [TextContent(
+            type="text",
+            text=json.dumps({"tool": name, "status": "error", "message": str(e)}, indent=2),
+        )]
 
 
 # ---------------------------------------------------------------------------
@@ -628,8 +629,8 @@ def _handle_create_material(args: dict, client: CSTClient) -> list[TextContent]:
         .set("Name", mat_name)
         .set_number("Epsilon", epsilon)
         .set_number("Mu", mu)
-        .set_number("TanDe", tan_d_e)
-        .set_number("TanDm", tan_d_m)
+        .set_number("TanD", tan_d_e)
+        .set_number("TanDM", tan_d_m)
         .set_number("Sigma", conductivity)
         .set_triple("Colour", color_r, color_g, color_b)
         .set_number("Transparency", transparency)
@@ -719,9 +720,9 @@ def _handle_create_anisotropic_material(args: dict, client: CSTClient) -> list[T
         .set_number("MuX", mu_x)
         .set_number("MuY", mu_y)
         .set_number("MuZ", mu_z)
-        .set_number("TanDeX", td_x)
-        .set_number("TanDeY", td_y)
-        .set_number("TanDeZ", td_z)
+        .set_number("TanDX", td_x)
+        .set_number("TanDY", td_y)
+        .set_number("TanDZ", td_z)
         .call("Create")
     )
     script.add_block(vba)
@@ -772,12 +773,8 @@ def _handle_list_materials(args: dict) -> list[TextContent]:
     db = _load_material_db()
     category = args.get("category")
 
-    if category == "metals":
-        materials = db.get("metals", [])
-    elif category == "dielectrics":
-        materials = db.get("dielectrics", [])
-    elif category == "substrates":
-        materials = db.get("substrates", [])
+    if category in ("metals", "dielectrics", "substrates"):
+        materials = db.get(category, [])
     else:
         # Return all categories
         materials = []
@@ -802,7 +799,7 @@ def _handle_assign_material(args: dict, client: CSTClient) -> list[TextContent]:
 
     # Validate the solid reference format (Component:SolidName)
     if ":" not in solid:
-        raise ValueError(
+        raise ValidationError(
             f"Invalid solid reference '{solid}': expected 'Component:SolidName' format"
         )
     component, solid_name = solid.split(":", 1)

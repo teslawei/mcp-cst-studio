@@ -36,32 +36,33 @@ def _assert_executed(data: dict) -> None:
 
 
 class TestClientExecuteVBA:
-    """Test execute_vba dispatches to modeler, not schematic."""
+    """Test execute_vba dispatches to model3d.add_to_history."""
 
-    def test_modeler_called(self, mock_client: CSTClient):
+    def test_model3d_called(self, mock_client: CSTClient):
         result = mock_client.execute_vba("Sub Main\nEnd Sub")
         assert result["status"] == "executed"
-        mock_client._project.modeler.execute_vba_code.assert_called_once_with(
-            "Sub Main\nEnd Sub"
-        )
+        mock_client._project.model3d.add_to_history.assert_called_once()
+        # Verify VBA code is the second positional arg
+        call_args = mock_client._project.model3d.add_to_history.call_args
+        assert call_args[0][1] == "Sub Main\nEnd Sub"
 
     def test_schematic_not_called(self, mock_client: CSTClient):
         mock_client.execute_vba("Sub Main\nEnd Sub")
         mock_client._project.schematic.execute_vba_code.assert_not_called()
 
-    def test_modeler_exception_returns_error(self, mock_client: CSTClient):
-        mock_client._project.modeler.execute_vba_code.side_effect = RuntimeError(
+    def test_model3d_exception_returns_error(self, mock_client: CSTClient):
+        mock_client._project.model3d.add_to_history.side_effect = RuntimeError(
             "CST error"
         )
         result = mock_client.execute_vba("Sub Main\nEnd Sub")
         assert result["status"] == "error"
         assert "CST error" in result["message"]
 
-    def test_modeler_attribute_error_falls_back_to_schematic(
+    def test_model3d_attribute_error_falls_back_to_schematic(
         self, mock_client: CSTClient
     ):
-        mock_client._project.modeler.execute_vba_code.side_effect = AttributeError(
-            "no modeler"
+        mock_client._project.model3d.add_to_history.side_effect = AttributeError(
+            "no model3d"
         )
         mock_client._project.schematic.execute_vba_code.return_value = "ok"
         result = mock_client.execute_vba("Sub Main\nEnd Sub")
@@ -69,12 +70,12 @@ class TestClientExecuteVBA:
         mock_client._project.schematic.execute_vba_code.assert_called_once()
 
     def test_result_string_returned(self, mock_client: CSTClient):
-        mock_client._project.modeler.execute_vba_code.return_value = "42"
+        mock_client._project.model3d.add_to_history.return_value = "42"
         result = mock_client.execute_vba("Sub Main\nEnd Sub")
         assert result["result"] == "42"
 
     def test_none_result_returns_ok(self, mock_client: CSTClient):
-        mock_client._project.modeler.execute_vba_code.return_value = None
+        mock_client._project.model3d.add_to_history.return_value = None
         result = mock_client.execute_vba("Sub Main\nEnd Sub")
         assert result["result"] == "ok"
 
@@ -128,7 +129,7 @@ class TestGeometryConnected:
         )
         data = _parse(result)
         _assert_executed(data)
-        mock_client._project.modeler.execute_vba_code.assert_called_once()
+        mock_client._project.model3d.add_to_history.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_create_cylinder(self, mock_client: CSTClient):
@@ -657,8 +658,8 @@ class TestVBAConnected:
 class TestConnectedModeErrors:
     @pytest.mark.asyncio
     async def test_geometry_error_propagated(self, mock_client: CSTClient):
-        """When modeler.execute_vba_code raises, the error should propagate."""
-        mock_client._project.modeler.execute_vba_code.side_effect = RuntimeError(
+        """When model3d.add_to_history raises, the error should propagate."""
+        mock_client._project.model3d.add_to_history.side_effect = RuntimeError(
             "CST internal error"
         )
         from mcp_cst_studio.tools.geometry import handle
@@ -717,7 +718,7 @@ class TestVBAContentInConnectedMode:
             },
             mock_client,
         )
-        vba = mock_client._project.modeler.execute_vba_code.call_args[0][0]
+        vba = mock_client._project.model3d.add_to_history.call_args[0][1]
         assert "With Brick" in vba
         assert '"substrate"' in vba
         assert '"Antenna"' in vba
@@ -733,7 +734,7 @@ class TestVBAContentInConnectedMode:
             {"f_min": 2.0, "f_max": 3.0},
             mock_client,
         )
-        vba = mock_client._project.modeler.execute_vba_code.call_args[0][0]
+        vba = mock_client._project.model3d.add_to_history.call_args[0][1]
         assert "FrequencyRange" in vba
 
     @pytest.mark.asyncio
@@ -745,7 +746,7 @@ class TestVBAContentInConnectedMode:
             {"accuracy": -30},
             mock_client,
         )
-        vba = mock_client._project.modeler.execute_vba_code.call_args[0][0]
+        vba = mock_client._project.model3d.add_to_history.call_args[0][1]
         assert "Solver" in vba
 
     @pytest.mark.asyncio
@@ -757,6 +758,6 @@ class TestVBAContentInConnectedMode:
             {"name": "TestMat", "epsilon_r": 2.2},
             mock_client,
         )
-        vba = mock_client._project.modeler.execute_vba_code.call_args[0][0]
+        vba = mock_client._project.model3d.add_to_history.call_args[0][1]
         assert "Material" in vba
         assert '"TestMat"' in vba
