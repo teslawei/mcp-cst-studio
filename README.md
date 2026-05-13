@@ -178,4 +178,7 @@ mypy src/mcp_cst_studio/  # type checking
 
 ## License
 
-Apache License 2.0 — See [LICENSE](LICENSE).
+[AGPL-3.0-or-later](LICENSE). Relicensed from Apache-2.0 in v0.2.0 to
+align with the eng-mcp-suite toolkit-wide AGPL move. CST Studio Suite
+itself (Dassault Systèmes) is a separate commercial product invoked
+at runtime; this wrapper does not bundle or redistribute it.
