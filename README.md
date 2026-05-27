@@ -4,7 +4,7 @@ A Model Context Protocol (MCP) server providing AI-driven access to [CST Studio 
 
 ## Features
 
-- **~107 tools** across 16 categories: geometry, materials, ports, boundaries, mesh, solvers, simulation, results, parameters, antenna templates, PCB, and more
+- **170 tools** across 20 categories: geometry, materials, ports, boundaries, mesh, solvers, simulation, results, parameters, antenna templates, arrays, matching networks, diagnostics, optimization, PCB, and more
 - **Dual-mode operation**: Connected mode (direct CST execution on Windows) and Offline mode (VBA script generation on any OS)
 - **13 parametric antenna templates**: Patch, dipole, monopole, horn, Yagi, helix, Vivaldi, slot, IFA, PIFA, spiral, bowtie — with automatic dimension calculations from target frequency
 - **PCB/SI tools**: Stackup creation, trace routing with impedance calculation, via modeling, ground planes
@@ -80,17 +80,21 @@ When the CST Python library is available, tools execute directly:
 | Geometry | 13 | Brick, cylinder, sphere, cone, torus, extrude, loft, wire, polygon |
 | Boolean | 4 | Add, subtract, intersect, insert operations |
 | Transforms | 4 | Translate, rotate, mirror, scale |
-| Materials | 8 | Create, load, assign materials; built-in material database |
-| Ports | 7 | Waveguide, discrete, lumped, plane wave, Floquet ports |
-| Boundaries | 4 | Boundary conditions, background, symmetry, frequency range |
-| Mesh | 5 | Mesh type, density, refinement, adaptive meshing |
-| Solvers | 5 | Time domain, frequency domain, eigenmode, integral equation |
+| Materials | 15 | Create, load, assign materials; built-in material database; lossy metals; anisotropic |
+| Ports | 8 | Waveguide, discrete, lumped, plane wave, Floquet ports |
+| Boundaries | 6 | Boundary conditions, background, symmetry, frequency range |
+| Mesh | 8 | Mesh type, density, refinement, adaptive meshing, hex/tet controls |
+| Solvers | 8 | Time domain, frequency domain, eigenmode, integral equation, asymptotic |
 | Simulation | 6 | Run, status, pause, resume, stop simulations |
-| Results | 10 | S-parameters, far-field, impedance, VSWR, gain, efficiency |
+| Results | 22 | S-parameters, far-field, near-field, impedance, VSWR, gain, efficiency, Smith chart |
 | Import/Export | 5 | CAD import/export, Touchstone, far-field export |
-| Parameters | 6 | Parametric design, sweeps, optimization |
+| Parameters | 11 | Parametric design, sweeps, expressions, dependencies |
 | Antenna Templates | 13 | Parametric antenna designs with RF calculations |
-| PCB | 6 | Stackup, traces, vias, ground planes, Gerber import |
+| Arrays | 8 | Linear / planar / circular array synthesis, element factors, beamforming |
+| Matching | 8 | L / Pi / T networks, Smith-chart matching, stub matching |
+| PCB | 12 | Stackup, traces, vias, ground planes, Gerber import, differential pairs |
+| Diagnostics | 5 | Connection status, model integrity, mesh quality, solver convergence |
+| Optimization | 3 | Goal-driven sweeps, genetic / gradient optimizers |
 | VBA | 3 | Raw VBA execution, help reference, object listing |
 
 ## Antenna Templates
