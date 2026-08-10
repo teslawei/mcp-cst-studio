@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from mcp_cst_studio.vba_builder import VBABuilder, VBAScript, solid_ref
 from mcp_cst_studio.validators import ValidationError
+from mcp_cst_studio.vba_builder import VBABuilder, VBAScript, solid_ref
 
 
 class TestVBABuilder:

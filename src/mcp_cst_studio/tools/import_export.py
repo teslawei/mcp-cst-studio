@@ -7,13 +7,14 @@ exporting models, and handling Touchstone and far-field data files.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
 from mcp_cst_studio.validators import validate_file_path, validate_name
+from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
 
 if TYPE_CHECKING:
     from mcp.server import Server
@@ -213,9 +214,7 @@ def _build_import_cad(args: dict) -> str:
     # Format-specific options
     if fmt == "stl":
         vba.set("ScaleToUnit", "True")
-    elif fmt in ("stp", "sat"):
-        vba.set_bool("Healing", True)
-    elif fmt == "igs":
+    elif fmt in ("stp", "sat") or fmt == "igs":
         vba.set_bool("Healing", True)
 
     vba.call("Read")

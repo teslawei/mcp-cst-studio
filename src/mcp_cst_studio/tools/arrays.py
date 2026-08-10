@@ -17,7 +17,8 @@ from __future__ import annotations
 import cmath
 import json
 import math
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from mcp.types import TextContent, Tool
 
@@ -558,8 +559,8 @@ def _build_circular_array(args: dict) -> str:
         notes=[
             f"Element_1 must already exist in component '{component}' at radius={radius} mm on the +X axis.",
             f"Elements are rotated about the Z-axis at {angle_step:.1f} deg intervals.",
-            f"Arc spacing between adjacent elements is {arc_spacing:.2f} mm "
-            f"({arc_spacing / lam:.3f} wavelengths).",
+            (f"Arc spacing between adjacent elements is {arc_spacing:.2f} mm "
+            f"({arc_spacing / lam:.3f} wavelengths)."),
         ],
     )
 
@@ -749,14 +750,12 @@ def _find_peak_sidelobe(
     sidelobe_max = -300.0
 
     # Check left sidelobe region (everything to the left of the first null)
-    for i in range(0, null_left + 1):
-        if af_db[i] > sidelobe_max:
-            sidelobe_max = af_db[i]
+    for i in range(null_left + 1):
+        sidelobe_max = max(sidelobe_max, af_db[i])
 
     # Check right sidelobe region (everything to the right of the first null)
     for i in range(null_right, n):
-        if af_db[i] > sidelobe_max:
-            sidelobe_max = af_db[i]
+        sidelobe_max = max(sidelobe_max, af_db[i])
 
     return sidelobe_max
 

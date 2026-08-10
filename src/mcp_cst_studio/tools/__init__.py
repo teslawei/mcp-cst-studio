@@ -13,7 +13,8 @@ pair so the MCP protocol sees all tools in one list.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Awaitable, Callable, cast
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, cast
 
 from mcp.types import TextContent, Tool
 
@@ -96,6 +97,7 @@ def register_all_tools(server: Server, client: CSTClient) -> None:
     from mcp_cst_studio.tools.diagnostics import register_diagnostics_tools
     from mcp_cst_studio.tools.geometry import register_geometry_tools
     from mcp_cst_studio.tools.import_export import register_import_export_tools
+    from mcp_cst_studio.tools.matching import register_matching_tools
     from mcp_cst_studio.tools.materials import register_material_tools
     from mcp_cst_studio.tools.mesh import register_mesh_tools
     from mcp_cst_studio.tools.optimization import register_optimization_tools
@@ -107,7 +109,6 @@ def register_all_tools(server: Server, client: CSTClient) -> None:
     from mcp_cst_studio.tools.simulation import register_simulation_tools
     from mcp_cst_studio.tools.solvers import register_solver_tools
     from mcp_cst_studio.tools.transforms import register_transform_tools
-    from mcp_cst_studio.tools.matching import register_matching_tools
     from mcp_cst_studio.tools.vba import register_vba_tools
 
     register_project_tools(server, client)

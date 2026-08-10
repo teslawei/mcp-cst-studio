@@ -17,7 +17,8 @@ import logging
 import math
 import os
 import tempfile
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from mcp.types import TextContent, Tool
 
@@ -248,7 +249,7 @@ def _parse_s11_data(filepath: str) -> tuple[list[float], list[float]]:
     # Skip header lines (non-numeric or separator lines)
     for line in lines:
         stripped = line.strip()
-        if not stripped or stripped.startswith("-") or stripped.startswith("F"):
+        if not stripped or stripped.startswith(("-", "F")):
             continue
         parts = stripped.split()
         if len(parts) >= 2:
@@ -421,7 +422,7 @@ def _parse_z_data(filepath: str) -> tuple[list[float], list[float]]:
 
     for line in lines:
         stripped = line.strip()
-        if not stripped or stripped.startswith("-") or stripped.startswith("F"):
+        if not stripped or stripped.startswith(("-", "F")):
             continue
         parts = stripped.split()
         if len(parts) >= 2:
@@ -708,13 +709,13 @@ def _analyze_impedance_band(
         targets = sample_freqs
     else:
         # Default: band edges + center + worst + best
-        targets = sorted(set([
+        targets = sorted({
             f_low,
             (f_low + f_high) / 2,
             f_high,
             worst_pt["freq_ghz"],
             best_pt["freq_ghz"],
-        ]))
+        })
 
     for f_target in targets:
         if f_low <= f_target <= f_high:
@@ -1312,10 +1313,10 @@ async def _handle_analyze_impedance(args: dict, client: CSTClient) -> dict:
             "z0_ohm": z0,
             "message": (
                 "Run this VBA in CST to export S11 data from "
-                "'1D Results\\S-Parameters\\S{p},{p}'. After export, "
+                f"'1D Results\\S-Parameters\\S{port},{port}'. After export, "
                 "compute |Γ| = 10^(S11_dB/20), VSWR = (1+|Γ|)/(1-|Γ|). "
                 "VSWR should be ≤ target across each band."
-            ).format(p=port),
+            ),
             "analysis_guidance": {
                 "resonance_below": (
                     "Resonance below band: shorten the resonant path, "

@@ -11,16 +11,16 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
 from mcp_cst_studio.validators import (
     validate_file_path,
     validate_name,
     validate_positive,
     validate_range,
 )
+from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
 
 if TYPE_CHECKING:
     from mcp.server import Server
@@ -762,11 +762,11 @@ def _microstrip_impedance(w: float, h: float, er: float, t: float = 0.035) -> fl
     u = we / h
 
     # Hammerstad-Jensen effective dielectric constant
-    eps_eff = 0.5 * (er + 1.0) + 0.5 * (er - 1.0) * (1.0 + 10.0 / u) ** (-0.5)  # noqa: E501
+    eps_eff = 0.5 * (er + 1.0) + 0.5 * (er - 1.0) * (1.0 + 10.0 / u) ** (-0.5)
 
     # Hammerstad-Jensen impedance
     f = 6.0 + (2.0 * math.pi - 6.0) * math.exp(-(30.666 / u) ** 0.7528)
-    z0 = (60.0 / math.sqrt(eps_eff)) * math.log(f / u + math.sqrt(1.0 + (2.0 / u) ** 2))  # noqa: E501
+    z0 = (60.0 / math.sqrt(eps_eff)) * math.log(f / u + math.sqrt(1.0 + (2.0 / u) ** 2))
 
     return z0
 
@@ -852,7 +852,7 @@ def _stripline_impedance(w: float, h: float, er: float, t: float = 0.035) -> flo
     else:
         cf = 2.0 * math.pi
         z0 = (94.25 / math.sqrt(er)) / (
-            we / b + cf * math.log(1.0 + 1.0 / math.tanh(cf * we / (2.0 * b)))  # noqa: E501
+            we / b + cf * math.log(1.0 + 1.0 / math.tanh(cf * we / (2.0 * b)))
             / math.pi
         )
 
@@ -1672,8 +1672,7 @@ async def _handle_via_model(
     # Via barrel (hollow cylinder with plating thickness)
     outer_r = drill_r
     inner_r = drill_r - plating_mm
-    if inner_r <= 0:
-        inner_r = 0  # Filled via
+    inner_r = max(0, inner_r)  # Filled via
 
     barrel_vba = (
         VBABuilder("Cylinder")

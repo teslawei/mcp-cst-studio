@@ -505,7 +505,7 @@ _material_db_cache: dict[str, list[dict]] | None = None
 
 def _load_material_db() -> dict[str, list[dict]]:
     """Load and cache the bundled JSON material databases."""
-    global _material_db_cache  # noqa: PLW0603
+    global _material_db_cache
     if _material_db_cache is not None:
         return _material_db_cache
 

@@ -35,7 +35,7 @@ _IS_WINDOWS = platform.system() == "Windows"
 
 if _IS_WINDOWS:
     import ctypes
-    import ctypes.wintypes as wintypes
+    from ctypes import wintypes
 
     user32 = ctypes.windll.user32  # type: ignore[attr-defined]
 

@@ -7,13 +7,14 @@ sweeps, and configuring optimizations in CST Studio.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.vba_builder import VBABuilder, VBAScript, _escape_vba_string
 from mcp_cst_studio.validators import validate_name, validate_positive
+from mcp_cst_studio.vba_builder import VBABuilder, VBAScript, _escape_vba_string
 
 if TYPE_CHECKING:
     from mcp.server import Server
@@ -977,9 +978,7 @@ async def handle(name: str, arguments: dict, client: CSTClient) -> list[TextCont
         if name == "cst_set_parameter":
             result["parameter"] = arguments["name"]
             result["value"] = arguments["value"]
-        elif name == "cst_get_parameter":
-            result["parameter"] = arguments["name"]
-        elif name == "cst_delete_parameter":
+        elif name == "cst_get_parameter" or name == "cst_delete_parameter":
             result["parameter"] = arguments["name"]
         elif name == "cst_parameter_sweep":
             result["parameter"] = arguments["parameter"]

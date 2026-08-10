@@ -14,7 +14,7 @@ from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.types import ExportFormat, ProjectType
-from mcp_cst_studio.validators import validate_file_path, ValidationError
+from mcp_cst_studio.validators import ValidationError, validate_file_path
 from mcp_cst_studio.vba_builder import VBABuilder, VBAScript, _escape_vba_string
 
 if TYPE_CHECKING:

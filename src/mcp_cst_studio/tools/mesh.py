@@ -297,8 +297,7 @@ def _set_adaptive_mesh(arguments: dict, client: CSTClient) -> list[TextContent]:
     max_passes = int(arguments.get("max_passes", 3))
     threshold = float(arguments.get("threshold", 0.02))
 
-    if max_passes < 1:
-        max_passes = 1
+    max_passes = max(max_passes, 1)
     validate_range(max_passes, 1, 100, "max_passes")
     validate_positive(threshold, "threshold")
 

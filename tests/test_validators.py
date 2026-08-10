@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from mcp_cst_studio.types import SolverType
 from mcp_cst_studio.validators import (
     ValidationError,
     validate_component_path,
@@ -17,7 +18,6 @@ from mcp_cst_studio.validators import (
     validate_range,
     validate_vba_input,
 )
-from mcp_cst_studio.types import SolverType
 
 
 class TestValidateName:

@@ -10,7 +10,6 @@ import tempfile
 import pytest
 
 from mcp_cst_studio.cst_client import CSTClient
-
 from mcp_cst_studio.tools.optimization import (
     _analyze_impedance_band,
     _build_impedance_vba,
@@ -40,7 +39,6 @@ from mcp_cst_studio.tools.optimization import (
     vswr_to_s11,
     z_to_gamma,
 )
-
 
 # ---------------------------------------------------------------------------
 # S11 <-> VSWR conversion
@@ -249,7 +247,7 @@ class TestComputeCost:
         freqs = [1.0, 1.5]
         s11 = [-10.0, -10.0]
         bands = [{"name": "5 GHz", "f_low_ghz": 5.0, "f_high_ghz": 6.0, "vswr_target": 2.5}]
-        cost, results = _compute_cost(freqs, s11, bands)
+        cost, _results = _compute_cost(freqs, s11, bands)
         assert cost == 10.0  # NO_DATA penalty
 
 

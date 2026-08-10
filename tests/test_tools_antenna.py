@@ -7,8 +7,8 @@ import math
 
 import pytest
 
-from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.config import CSTConfig
+from mcp_cst_studio.cst_client import CSTClient
 
 C = 299792458  # speed of light m/s
 

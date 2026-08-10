@@ -315,10 +315,8 @@ def _configure_time_domain(arguments: dict, client: CSTClient) -> list[TextConte
     fixed_impedance = float(arguments.get("fixed_impedance", 50))
 
     validate_range(accuracy, -100, 0, "accuracy")
-    if max_time_steps < 0:
-        max_time_steps = 0
-    if stimulation_port < 1:
-        stimulation_port = 1
+    max_time_steps = max(max_time_steps, 0)
+    stimulation_port = max(stimulation_port, 1)
     validate_enum_value(excitation_type, ExcitationType, "excitation_type")
     validate_positive(fixed_impedance, "fixed_impedance")
 
@@ -352,8 +350,7 @@ def _configure_frequency_domain(arguments: dict, client: CSTClient) -> list[Text
 
     validate_positive(accuracy, "accuracy")
     validate_positive(f_max, "f_max")
-    if f_min < 0:
-        f_min = 0
+    f_min = max(f_min, 0)
     if f_min >= f_max:
         return [
             TextContent(
@@ -400,8 +397,7 @@ def _configure_eigenmode(arguments: dict, client: CSTClient) -> list[TextContent
 
     validate_range(number_of_modes, 1, 1000, "number_of_modes")
     validate_positive(accuracy, "accuracy")
-    if f_min < 0:
-        f_min = 0
+    f_min = max(f_min, 0)
 
     vba = VBABuilder("EigenmodeSolver")
     vba.set_number("NumberOfModes", number_of_modes)
@@ -569,8 +565,7 @@ def _configure_multilayer_solver(arguments: dict, client: CSTClient) -> list[Tex
     sweep_type = arguments.get("sweep_type", "Interpolated")
 
     validate_positive(f_max, "f_max")
-    if f_min < 0:
-        f_min = 0
+    f_min = max(f_min, 0)
     if f_min >= f_max:
         return [TextContent(type="text", text=json.dumps({
             "status": "error",

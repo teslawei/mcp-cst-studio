@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import json
 import math
-from typing import Callable
+from collections.abc import Callable
 
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
 from mcp_cst_studio.validators import validate_frequency, validate_positive
+from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
 
 # ---------------------------------------------------------------------------
 # Physical constants

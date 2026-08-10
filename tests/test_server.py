@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-
 import pytest
 
-from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.config import CSTConfig
+from mcp_cst_studio.cst_client import CSTClient
 from mcp_cst_studio.tools import ToolRegistry
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -78,8 +76,10 @@ class TestToolRegistryAddModule:
     def test_multiple_add_module_calls_accumulate(
         self, fresh_registry: ToolRegistry, offline_client: CSTClient
     ):
-        from mcp_cst_studio.tools.project import TOOLS as project_tools, handle as ph
-        from mcp_cst_studio.tools.geometry import TOOLS as geo_tools, handle as gh
+        from mcp_cst_studio.tools.geometry import TOOLS as geo_tools
+        from mcp_cst_studio.tools.geometry import handle as gh
+        from mcp_cst_studio.tools.project import TOOLS as project_tools
+        from mcp_cst_studio.tools.project import handle as ph
         fresh_registry.add_module(project_tools, ph, offline_client)
         fresh_registry.add_module(geo_tools, gh, offline_client)
         assert len(fresh_registry._tools) == len(project_tools) + len(geo_tools)
@@ -93,7 +93,8 @@ class TestRegisterAllTools:
     def test_register_all_tools_registers_162_tools(self, offline_client: CSTClient):
         """register_all_tools() must register exactly 162 tools."""
         from mcp.server import Server
-        from mcp_cst_studio.tools import register_all_tools, _registry
+
+        from mcp_cst_studio.tools import _registry, register_all_tools
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
@@ -103,7 +104,8 @@ class TestRegisterAllTools:
     def test_register_all_tools_clears_before_registering(self, offline_client: CSTClient):
         """Calling register_all_tools twice must not double the count."""
         from mcp.server import Server
-        from mcp_cst_studio.tools import register_all_tools, _registry
+
+        from mcp_cst_studio.tools import _registry, register_all_tools
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
@@ -118,7 +120,8 @@ class TestRegisterAllTools:
     def test_all_tool_names_are_unique(self, offline_client: CSTClient):
         """No two tools may share the same name."""
         from mcp.server import Server
-        from mcp_cst_studio.tools import register_all_tools, _registry
+
+        from mcp_cst_studio.tools import _registry, register_all_tools
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
@@ -128,7 +131,8 @@ class TestRegisterAllTools:
 
     def test_all_tools_have_non_empty_names(self, offline_client: CSTClient):
         from mcp.server import Server
-        from mcp_cst_studio.tools import register_all_tools, _registry
+
+        from mcp_cst_studio.tools import _registry, register_all_tools
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
@@ -138,7 +142,8 @@ class TestRegisterAllTools:
 
     def test_all_tools_have_descriptions(self, offline_client: CSTClient):
         from mcp.server import Server
-        from mcp_cst_studio.tools import register_all_tools, _registry
+
+        from mcp_cst_studio.tools import _registry, register_all_tools
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
@@ -148,7 +153,8 @@ class TestRegisterAllTools:
 
     def test_every_tool_has_a_handler(self, offline_client: CSTClient):
         from mcp.server import Server
-        from mcp_cst_studio.tools import register_all_tools, _registry
+
+        from mcp_cst_studio.tools import _registry, register_all_tools
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
@@ -166,7 +172,8 @@ class TestRegisterAllTools:
 class TestToolNames:
     def test_tool_names_are_accessible(self, offline_client: CSTClient):
         from mcp.server import Server
-        from mcp_cst_studio.tools import register_all_tools, _registry
+
+        from mcp_cst_studio.tools import _registry, register_all_tools
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
@@ -177,7 +184,8 @@ class TestToolNames:
 
     def test_tool_names_contain_expected_entries(self, offline_client: CSTClient):
         from mcp.server import Server
-        from mcp_cst_studio.tools import register_all_tools, _registry
+
+        from mcp_cst_studio.tools import _registry, register_all_tools
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
@@ -196,7 +204,8 @@ class TestToolNames:
 
     def test_tool_names_all_start_with_cst_prefix(self, offline_client: CSTClient):
         from mcp.server import Server
-        from mcp_cst_studio.tools import register_all_tools, _registry
+
+        from mcp_cst_studio.tools import _registry, register_all_tools
 
         server = Server("test-server")
         register_all_tools(server, offline_client)
@@ -213,8 +222,9 @@ class TestToolNames:
 
 class TestCreateServer:
     def test_create_server_returns_server_and_client(self):
-        from mcp_cst_studio.server import create_server
         from mcp.server import Server
+
+        from mcp_cst_studio.server import create_server
 
         server, client = create_server()
 

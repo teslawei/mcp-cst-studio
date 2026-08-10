@@ -7,7 +7,8 @@ in CST Studio by generating VBA scripts via VBABuilder.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from mcp.types import TextContent, Tool
 
@@ -15,8 +16,8 @@ if TYPE_CHECKING:
     from mcp.server import Server
 
 from mcp_cst_studio.cst_client import CSTClient
+from mcp_cst_studio.validators import validate_name, validate_non_negative, validate_positive
 from mcp_cst_studio.vba_builder import VBABuilder, VBAScript
-from mcp_cst_studio.validators import validate_name, validate_positive, validate_non_negative
 
 # ---------------------------------------------------------------------------
 # Tool definitions

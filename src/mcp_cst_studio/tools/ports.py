@@ -8,7 +8,12 @@ from mcp.server import Server
 from mcp.types import TextContent, Tool
 
 from mcp_cst_studio.cst_client import CSTClient
-from mcp_cst_studio.validators import validate_name, validate_port_number, validate_positive, validate_range
+from mcp_cst_studio.validators import (
+    validate_name,
+    validate_port_number,
+    validate_positive,
+    validate_range,
+)
 from mcp_cst_studio.vba_builder import VBABuilder
 
 _ORIENTATION_ENUM = ["xmin", "xmax", "ymin", "ymax", "zmin", "zmax"]
