@@ -37,7 +37,7 @@ TOOLS: list[Tool] = [
             "the ground/substrate terminates. Use Coordinates='Free' for ports not "
             "aligned to the bounding box. Valid orientations: xmin/xmax/ymin/ymax/zmin/zmax."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port_number": {
@@ -108,7 +108,7 @@ TOOLS: list[Tool] = [
             "Add a discrete (lumped) port between two points. Used for circuit-level "
             "excitation with a defined impedance."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port_number": {
@@ -160,7 +160,7 @@ TOOLS: list[Tool] = [
             "Add a lumped R, L, C, or RLC element between two points. "
             "Value is in ohms for R, henries for L, farads for C."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -220,7 +220,7 @@ TOOLS: list[Tool] = [
             "Add a plane wave excitation source. Defines an incident plane wave "
             "with given direction and polarization for scattering / RCS analysis."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "polarization": {
@@ -256,7 +256,7 @@ TOOLS: list[Tool] = [
             "Add a Floquet port for periodic structures such as frequency selective "
             "surfaces, metamaterials, and phased arrays."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port_number": {
@@ -283,7 +283,7 @@ TOOLS: list[Tool] = [
             "List all ports defined in the current CST project. Returns VBA to "
             "query port information, or a description in offline mode."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -292,7 +292,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_delete_port",
         description="Delete a port by its port number.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port_number": {
@@ -310,7 +310,7 @@ TOOLS: list[Tool] = [
             "analysis. Used for multimode waveguides, mode converters, and structures "
             "where higher-order propagating modes need to be captured."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port_number": {

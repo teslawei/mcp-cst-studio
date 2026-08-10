@@ -35,7 +35,7 @@ TOOLS: list[Tool] = [
             "Specify relative permittivity (epsilon), relative permeability (mu), "
             "electric and magnetic loss tangents, and conductivity."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -98,7 +98,7 @@ TOOLS: list[Tool] = [
             "finite conductivity skin-effect losses, essential for accurate loss "
             "calculations in connectors, waveguides, and PCB traces."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -125,7 +125,7 @@ TOOLS: list[Tool] = [
             "permeability, and loss tangent values. Used for crystals, "
             "metamaterials, and composite substrates."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {"type": "string", "description": "Material name"},
@@ -164,7 +164,7 @@ TOOLS: list[Tool] = [
             "Load a material from the CST material library by its library name. "
             "The material is added to the project under the given name."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -186,7 +186,7 @@ TOOLS: list[Tool] = [
             "Optionally filter by category: 'metals', 'dielectrics', or 'substrates'. "
             "Returns name, key EM properties, and usage notes for each material."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "category": {
@@ -204,7 +204,7 @@ TOOLS: list[Tool] = [
             "Assign a material to an existing solid in CST Studio. "
             "The solid is specified as 'Component:SolidName'."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "solid": {
@@ -226,7 +226,7 @@ TOOLS: list[Tool] = [
             "database. Returns epsilon_r, mu_r, conductivity, loss tangent, "
             "and usage notes."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -240,7 +240,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_delete_material",
         description="Delete a material from the current CST project.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -259,7 +259,7 @@ TOOLS: list[Tool] = [
             "decreases with frequency: eps(w) = eps_inf + delta_eps/(1 + jw*tau). "
             "Used for biological tissues, water, polymers, and soil."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -300,7 +300,7 @@ TOOLS: list[Tool] = [
             "delta_eps * w0^2 / (w0^2 - w^2 + j*gamma*w). Used for glass, "
             "crystals, and optical materials."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -338,7 +338,7 @@ TOOLS: list[Tool] = [
             "(w^2 + j*gamma*w). Used for gold, silver, aluminium in optical/THz "
             "frequency ranges."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -365,7 +365,7 @@ TOOLS: list[Tool] = [
             "shifters. The Polder tensor describes the anisotropic magnetic "
             "response of a magnetised ferrite (Pozar Ch. 9.1)."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -409,7 +409,7 @@ TOOLS: list[Tool] = [
             "properties. Specify base properties and temperature coefficients "
             "for thermal-electromagnetic co-simulation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -451,7 +451,7 @@ TOOLS: list[Tool] = [
             "relaxation spectrum. Used for biological tissues, soil, and "
             "broadband absorbers."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -488,7 +488,7 @@ TOOLS: list[Tool] = [
             "Returns name, permittivity, saturation magnetisation, linewidth, "
             "loss tangent, maximum frequency, and usage notes for each ferrite."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],

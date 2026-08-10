@@ -31,7 +31,7 @@ TOOLS: list[Tool] = [
             "Set or create a design parameter in CST Studio. Parameters can hold "
             "numeric values or string expressions referencing other parameters."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -60,7 +60,7 @@ TOOLS: list[Tool] = [
             "Get the current value of a design parameter. Returns both the stored "
             "expression and the evaluated numeric value."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -79,7 +79,7 @@ TOOLS: list[Tool] = [
             "List all design parameters in the current CST project with their "
             "names, expressions, and evaluated numeric values."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -93,7 +93,7 @@ TOOLS: list[Tool] = [
             "Delete a design parameter from the CST project. The parameter must not "
             "be referenced by other parameters or geometry."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -112,7 +112,7 @@ TOOLS: list[Tool] = [
             "Set up a parameter sweep in CST Studio. The sweep runs the simulation "
             "multiple times, varying the specified parameter across a range of values."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "parameter": {
@@ -149,7 +149,7 @@ TOOLS: list[Tool] = [
             "or target a specific value for a result), specify which parameters to vary "
             "with their bounds, and choose an optimization algorithm."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "goal_type": {
@@ -222,7 +222,7 @@ TOOLS: list[Tool] = [
             "constraints. Supports Pareto-front exploration using Genetic Algorithm "
             "or Particle Swarm methods."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "goals": {
@@ -309,7 +309,7 @@ TOOLS: list[Tool] = [
             "their impact on a result. Varies each parameter individually while "
             "keeping others at nominal values."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "parameters": {
@@ -346,7 +346,7 @@ TOOLS: list[Tool] = [
             "Randomly varies parameters according to their tolerances and evaluates "
             "pass/fail criteria."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "parameters": {
@@ -403,7 +403,7 @@ TOOLS: list[Tool] = [
             "Single-objective optimization with explicit inequality constraints. "
             "Example: minimize S11 subject to gain > 8 dBi and bandwidth > 100 MHz."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "objective": {
@@ -472,7 +472,7 @@ TOOLS: list[Tool] = [
             "Interpolate results between parameter sweep data points to estimate "
             "performance at a specific parameter value without running a new simulation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "parameter": {

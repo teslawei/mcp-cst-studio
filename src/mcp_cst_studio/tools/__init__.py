@@ -6,8 +6,8 @@ Each tool module exposes:
   - ``register_*_tools(server, client)``: convenience to add both
 
 The ``ToolRegistry`` collects tools and handlers from every module,
-then wires a single ``@server.list_tools`` / ``@server.call_tool``
-pair so the MCP protocol sees all tools in one list.
+then wires them into the MCP server via explicit ``add_request_handler()``
+registrations for the tools/list and tools/call protocol handlers.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, cast
 
-from mcp.types import TextContent, Tool
+from mcp.types import CallToolRequestParams, CallToolResult, ListToolsRequest, ListToolsResult, TextContent, Tool
 
 logger = logging.getLogger(__name__)
 
@@ -66,21 +66,31 @@ class ToolRegistry:
     # -- internal: wire into the MCP server --
 
     def install(self, server: Server) -> None:
-        """Create the ``list_tools`` / ``call_tool`` MCP handlers."""
+        """Register the tools/list and tools/call MCP protocol handlers."""
         tools = list(self._tools)
         handlers = dict(self._handlers)
 
-        @server.list_tools()
-        async def _list_tools() -> list[Tool]:
-            return tools
+        async def handle_list_tools(
+            ctx: object, params: ListToolsRequest
+        ) -> ListToolsResult:
+            """List all registered tools."""
+            return ListToolsResult(tools=tools)
 
-        @server.call_tool()
-        async def _call_tool(name: str, arguments: dict) -> list[TextContent]:
+        async def handle_call_tool(
+            ctx: object, params: CallToolRequestParams
+        ) -> CallToolResult:
+            """Call a tool by name with the provided arguments."""
+            name = params.name
+            arguments = params.arguments
             handler = handlers.get(name)
             if handler is None:
                 raise ValueError(f"Unknown tool: {name}")
             logger.debug("Dispatching tool: %s", name)
-            return await handler(name, arguments)
+            content = await handler(name, arguments)
+            return CallToolResult(content=content)
+
+        server.add_request_handler("tools/list", ListToolsRequest, handle_list_tools)
+        server.add_request_handler("tools/call", CallToolRequestParams, handle_call_tool)
 
 
 # Module-level registry shared across register_* calls

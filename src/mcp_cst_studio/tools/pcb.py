@@ -40,7 +40,7 @@ TOOLS: list[Tool] = [
             "each layer (signal, ground, power, dielectric) positioned vertically with "
             "correct materials. Returns total thickness and layer positions."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "layers": {
@@ -99,7 +99,7 @@ TOOLS: list[Tool] = [
             "CPW) in CST Studio. Optionally calculates trace width from a target impedance "
             "using Hammerstad-Jensen (microstrip) or Cohn (stripline) formulas."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "trace_type": {
@@ -187,7 +187,7 @@ TOOLS: list[Tool] = [
             "Pad and antipad diameters are validated and reported but the geometry "
             "covers the barrel only; add pads separately if needed."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "x": {
@@ -252,7 +252,7 @@ TOOLS: list[Tool] = [
             "isolation slots) in CST Studio. Generates a solid copper brick and "
             "subtracts cutout regions."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "layer": {
@@ -304,7 +304,7 @@ TOOLS: list[Tool] = [
             "VBA for the CST Gerber import wizard. In offline mode, explains the import "
             "process and required settings."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "file_path": {
@@ -334,7 +334,7 @@ TOOLS: list[Tool] = [
             "Includes standard 2/4/6-layer FR-4 and RF-grade Rogers stackups. "
             "Use the returned layer data directly with cst_pcb_create_stackup."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "filter": {
@@ -357,7 +357,7 @@ TOOLS: list[Tool] = [
             "parallel bricks separated by a gap and calculates the differential "
             "impedance using coupled-line theory (Zdiff = 2*Z0*(1-k))."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -423,7 +423,7 @@ TOOLS: list[Tool] = [
             "and capacitance estimates. Uses the Goldfarb model for via inductance "
             "and a simplified capacitance formula."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -494,7 +494,7 @@ TOOLS: list[Tool] = [
             "or Substrate Integrated Waveguide (SIW) construction. Generates an "
             "array of cylinders from start to end point with specified spacing."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -563,7 +563,7 @@ TOOLS: list[Tool] = [
             "width and gap over the transition length. Calculates CPW and microstrip "
             "impedances."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {
@@ -627,7 +627,7 @@ TOOLS: list[Tool] = [
             "near-end/far-end crosstalk estimates using coupled microstrip formulas. "
             "Pure calculation — no VBA or CST geometry is generated."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "trace_width_mm": {
@@ -671,7 +671,7 @@ TOOLS: list[Tool] = [
             "waveguide sidewalls. Calculates effective width, cutoff frequency, and "
             "guided wavelength using Cassivi et al. formulas."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {

@@ -24,7 +24,7 @@ TOOLS: list[Tool] = [
             "for broadband simulations — it excites the structure with a pulse and computes "
             "S-parameters, fields, and farfield across the entire frequency range in a single run."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "accuracy": {
@@ -69,7 +69,7 @@ TOOLS: list[Tool] = [
             "structures, and when field distributions at specific frequencies are needed. "
             "Supports interpolated, discrete, and general-purpose sweep types."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "accuracy": {
@@ -107,7 +107,7 @@ TOOLS: list[Tool] = [
             "distributions of cavity structures. Used for filter design, resonator "
             "characterization, and Q-factor extraction."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "number_of_modes": {
@@ -136,7 +136,7 @@ TOOLS: list[Tool] = [
             "open-boundary problems like antenna placement on vehicles, RCS computation, "
             "and EMC/EMI analysis where volume meshing would be impractical."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "accuracy": {
@@ -159,7 +159,7 @@ TOOLS: list[Tool] = [
             "Get current solver configuration and status. In connected mode this queries "
             "the active solver settings; in offline mode it describes expected parameters."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -172,7 +172,7 @@ TOOLS: list[Tool] = [
             "waveguide mode analysis, cavity resonator design, and filter characterization "
             "where fine control over mode count, frequency targeting, and solver order is needed."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_modes": {
@@ -205,7 +205,7 @@ TOOLS: list[Tool] = [
             "Provides control over preconditioner, MLFMM acceleration, and low-frequency "
             "stabilization for installed antenna performance and large-platform RCS analysis."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "accuracy": {
@@ -245,7 +245,7 @@ TOOLS: list[Tool] = [
             "frequency selective surfaces (FSS), and radome analysis using the frequency domain "
             "solver with multilayer-specific settings."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "f_min": {

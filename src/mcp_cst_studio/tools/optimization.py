@@ -43,7 +43,7 @@ TOOLS: list[Tool] = [
             "per-band targets. Read-only — does not modify the model. "
             "Returns pass/fail per band, worst VSWR, and detected resonances."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "bands": {
@@ -94,7 +94,7 @@ TOOLS: list[Tool] = [
             "quality classification, nearest resonance info, and actionable "
             "design guidance. Read-only — does not modify the model."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "bands": {
@@ -157,7 +157,7 @@ TOOLS: list[Tool] = [
             "history bloat. Applies the best parameters permanently at the end. "
             "Connected mode only — requires a live CST session with a solvable project."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "parameters": {

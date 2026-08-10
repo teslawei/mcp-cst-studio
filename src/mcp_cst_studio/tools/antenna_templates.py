@@ -38,7 +38,7 @@ TOOLS: list[Tool] = [
             "and probe feed types. Generates substrate, ground plane, patch, "
             "feed structure, waveguide port, boundaries, and field monitors."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -83,7 +83,7 @@ TOOLS: list[Tool] = [
             "Create a half-wave dipole antenna at a target frequency. "
             "Generates two wire arms with a discrete port at the feed gap."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -107,7 +107,7 @@ TOOLS: list[Tool] = [
             "Create a quarter-wave monopole antenna over a ground plane. "
             "Generates a vertical wire element, ground plane, and feed port."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -135,7 +135,7 @@ TOOLS: list[Tool] = [
             "Create a pyramidal horn antenna for a target frequency and gain. "
             "Generates the waveguide section, flared horn, and waveguide port."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -168,7 +168,7 @@ TOOLS: list[Tool] = [
             "configurable number of directors. Generates wire elements and "
             "a discrete port feed."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -192,7 +192,7 @@ TOOLS: list[Tool] = [
             "Create an axial-mode helical antenna for circular polarization. "
             "Generates helix coil, ground plane, and feed."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -222,7 +222,7 @@ TOOLS: list[Tool] = [
             "Create a Vivaldi (tapered slot) antenna on a dielectric substrate. "
             "Generates substrate, exponential taper metallisation, and feed."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -256,7 +256,7 @@ TOOLS: list[Tool] = [
             "Create a slot antenna in a ground plane. Generates the ground "
             "plane with a resonant slot and microstrip feed."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -279,7 +279,7 @@ TOOLS: list[Tool] = [
             "Create an Inverted-F antenna (IFA) suitable for mobile devices. "
             "Generates ground plane, radiating arm, shorting pin, and feed."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -308,7 +308,7 @@ TOOLS: list[Tool] = [
             "Create a Planar Inverted-F Antenna (PIFA) for compact wireless "
             "devices. Generates ground plane, top patch, shorting wall, and feed."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -341,7 +341,7 @@ TOOLS: list[Tool] = [
             "Create a wideband Archimedean spiral antenna. Generates two "
             "spiral arms with a discrete port feed at the center."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "freq_low_ghz": {
@@ -369,7 +369,7 @@ TOOLS: list[Tool] = [
             "Create a planar bowtie antenna. Generates two triangular arms "
             "with a discrete port at the feed gap."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency_ghz": {
@@ -397,7 +397,7 @@ TOOLS: list[Tool] = [
             "List all available parametric antenna templates with descriptions "
             "and typical use cases. No arguments required."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],

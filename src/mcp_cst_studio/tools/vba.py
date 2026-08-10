@@ -33,7 +33,7 @@ TOOLS: list[Tool] = [
             "blocked). In connected mode the code runs directly; in offline mode "
             "the validated script is returned for manual execution."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "code": {
@@ -55,7 +55,7 @@ TOOLS: list[Tool] = [
             "Get VBA reference documentation for a CST Studio object. Returns "
             "the object description and a list of its common methods and properties."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "object_name": {
@@ -77,7 +77,7 @@ TOOLS: list[Tool] = [
             "List available CST Studio VBA objects, optionally filtered by category. "
             "Returns object names with brief descriptions."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "category": {

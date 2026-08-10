@@ -32,7 +32,7 @@ TOOLS: list[Tool] = [
             "In connected mode the project is created directly; "
             "in offline mode a VBA script is returned for manual execution."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "path": {
@@ -64,7 +64,7 @@ TOOLS: list[Tool] = [
             "In connected mode the project is opened in the running instance; "
             "in offline mode a reference is stored for subsequent operations."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "path": {
@@ -81,7 +81,7 @@ TOOLS: list[Tool] = [
             "Save the currently open CST project. "
             "Optionally provide a new path to 'Save As'."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "path": {
@@ -100,7 +100,7 @@ TOOLS: list[Tool] = [
         description=(
             "Close the currently open CST project and release its resources."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -112,7 +112,7 @@ TOOLS: list[Tool] = [
             "Get information about the currently open CST project, "
             "including connection mode, project path, and status."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -125,7 +125,7 @@ TOOLS: list[Tool] = [
             "Optionally specify a subtree path such as 'Components', "
             "'Materials', 'Ports', 'Monitors', or 'Results'."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "tree_path": {
@@ -146,7 +146,7 @@ TOOLS: list[Tool] = [
             "Export the current CST project or its geometry to another format "
             "such as STL, STEP, IGES, SAT, OBJ, or NASTRAN."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "path": {
@@ -170,7 +170,7 @@ TOOLS: list[Tool] = [
             "Get the current CST Studio connection status, including mode "
             "(connected/offline), CST availability, version, and work directory."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],

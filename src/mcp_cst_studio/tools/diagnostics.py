@@ -37,7 +37,7 @@ TOOLS: list[Tool] = [
             "existing results. Call before making parameter or geometry "
             "changes on a project that has been solved."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -52,7 +52,7 @@ TOOLS: list[Tool] = [
             "diagnosing solver errors, checking simulation progress, "
             "and understanding what happened during a failed run."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -67,7 +67,7 @@ TOOLS: list[Tool] = [
             "Use this to unblock CST when a modal dialog is preventing "
             "further automation. Uses Win32 API on Windows."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "read_only": {
@@ -91,7 +91,7 @@ TOOLS: list[Tool] = [
             "would otherwise block execution. The watcher logs every dialog "
             "it dismisses — retrieve the log with cst_stop_dialog_watcher."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -104,7 +104,7 @@ TOOLS: list[Tool] = [
             "dialogs that were auto-dismissed. Use after completing an "
             "operation that required the watcher."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],

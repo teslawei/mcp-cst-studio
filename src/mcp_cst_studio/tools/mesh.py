@@ -25,7 +25,7 @@ TOOLS: list[Tool] = [
             "Tetrahedral for frequency-domain, Surface for integral-equation, and "
             "Hexahedral TLM for TLM solver."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "mesh_type": {
@@ -44,7 +44,7 @@ TOOLS: list[Tool] = [
             "Higher cells_per_wavelength gives finer mesh and better accuracy at the "
             "cost of longer simulation time."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "cells_per_wavelength": {
@@ -72,7 +72,7 @@ TOOLS: list[Tool] = [
             "Add local mesh refinement to a specific solid. This creates finer mesh "
             "around critical geometry features like feed points, gaps, or thin layers."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {
@@ -99,7 +99,7 @@ TOOLS: list[Tool] = [
             "passes, refining the mesh in regions of high field gradient until the result "
             "converges within the specified threshold."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "enabled": {
@@ -127,7 +127,7 @@ TOOLS: list[Tool] = [
             "Get current mesh statistics and settings. In connected mode this queries "
             "the live mesh data; in offline mode it returns the VBA to retrieve mesh info."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -140,7 +140,7 @@ TOOLS: list[Tool] = [
             "per wavelength. In connected mode this queries actual mesh statistics; in "
             "offline mode it describes what metrics would be returned."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -153,7 +153,7 @@ TOOLS: list[Tool] = [
             "Controls the number of absorbing layers and the target reflection level "
             "for fine-tuning radiation boundary accuracy."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_layers": {
@@ -177,7 +177,7 @@ TOOLS: list[Tool] = [
             "Ensures the mesh contains a node exactly at the specified location for "
             "accurate field probing."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "x": {

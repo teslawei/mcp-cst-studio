@@ -54,7 +54,7 @@ TOOLS: list[Tool] = [
             "a chosen axis. Uses Transform.Translate to produce copies named "
             "Element_1 through Element_N."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_elements": {
@@ -95,7 +95,7 @@ TOOLS: list[Tool] = [
             "lattice. Replicates an element in X and Y using "
             "Transform.Translate."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_x": {
@@ -145,7 +145,7 @@ TOOLS: list[Tool] = [
             "Create a circular antenna array by placing elements at equal "
             "angular intervals around a circle of given radius."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_elements": {
@@ -180,7 +180,7 @@ TOOLS: list[Tool] = [
             "array. Returns AF(theta) in dB, half-power beamwidth, first "
             "null beamwidth, peak sidelobe level, and directivity."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_elements": {
@@ -221,7 +221,7 @@ TOOLS: list[Tool] = [
             "a specified angle. Returns phase weights and VBA to set port "
             "phases in CST."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_elements": {
@@ -259,7 +259,7 @@ TOOLS: list[Tool] = [
             "uniform, cosine, Hamming, Hanning, Blackman, Taylor, and "
             "Chebyshev window functions."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_elements": {
@@ -293,7 +293,7 @@ TOOLS: list[Tool] = [
             "and maximum scan angle. Returns safe spacing and grating lobe "
             "angles."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "spacing_wavelengths": {
@@ -317,7 +317,7 @@ TOOLS: list[Tool] = [
             "Set up a multi-port S-parameter simulation in CST for mutual "
             "coupling extraction between array elements."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_ports": {

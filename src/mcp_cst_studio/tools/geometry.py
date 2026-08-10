@@ -28,7 +28,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_brick",
         description="Create a rectangular brick (box) in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name (e.g. 'Antenna')"},
@@ -49,7 +49,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_cylinder",
         description="Create a cylinder in CST Studio. Use inner_radius=0 for a solid cylinder.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},
@@ -72,7 +72,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_cone",
         description="Create a cone or truncated cone in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},
@@ -95,7 +95,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_sphere",
         description="Create a sphere in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},
@@ -115,7 +115,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_torus",
         description="Create a torus in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},
@@ -136,7 +136,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_extrude",
         description="Extrude a 2D polygon profile into a 3D solid in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},
@@ -163,7 +163,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_loft",
         description="Create a lofted solid between two or more 2D profiles in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},
@@ -193,7 +193,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_wire",
         description="Create a bondwire / wire between two points in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},
@@ -215,7 +215,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_polygon3d",
         description="Create a 3D polygon curve in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {"type": "string", "description": "Curve name"},
@@ -239,7 +239,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_analytical_curve",
         description="Create a parametric analytical curve in CST Studio using expressions of parameter t.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "name": {"type": "string", "description": "Curve name"},
@@ -257,7 +257,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_face_from_curves",
         description="Create a planar face from one or more closed curves in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},
@@ -277,7 +277,7 @@ TOOLS: list[Tool] = [
     Tool(
         name="cst_create_ecylinder",
         description="Create an elliptical cylinder in CST Studio.",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},
@@ -303,7 +303,7 @@ TOOLS: list[Tool] = [
             "Create a polygon and extrude it along an axis in CST Studio. "
             "Convenience tool combining polygon profile creation and extrusion."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "component": {"type": "string", "description": "Component name"},

@@ -34,7 +34,7 @@ TOOLS: list[Tool] = [
             "This is a blocking call that waits for the simulation to complete. "
             "Use cst_run_simulation_async for long-running simulations."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "solver_type": _SOLVER_TYPE_SCHEMA,
@@ -49,7 +49,7 @@ TOOLS: list[Tool] = [
             "The simulation launches and control returns immediately. "
             "Use cst_get_simulation_status to monitor progress."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "solver_type": _SOLVER_TYPE_SCHEMA,
@@ -64,7 +64,7 @@ TOOLS: list[Tool] = [
             "Returns information such as whether a simulation is running, "
             "progress percentage, mesh cell count, and current time step."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -76,7 +76,7 @@ TOOLS: list[Tool] = [
             "Pause a currently running CST simulation. "
             "The simulation can be resumed later with cst_resume_simulation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -88,7 +88,7 @@ TOOLS: list[Tool] = [
             "Resume a previously paused CST simulation. "
             "Use after cst_pause_simulation to continue from where it stopped."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -101,7 +101,7 @@ TOOLS: list[Tool] = [
             "Unlike pause, a stopped simulation cannot be resumed — "
             "it must be restarted from the beginning."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],

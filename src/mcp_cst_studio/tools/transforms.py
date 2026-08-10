@@ -63,7 +63,7 @@ TOOLS: list[Tool] = [
             "Translate (move) a solid by a displacement vector (dx, dy, dz). "
             "Optionally create a translated copy."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "solid": _SOLID_SCHEMA,
@@ -90,7 +90,7 @@ TOOLS: list[Tool] = [
             "Rotate a solid by a given angle around an axis (x, y, or z). "
             "An optional center point can be specified."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "solid": _SOLID_SCHEMA,
@@ -115,7 +115,7 @@ TOOLS: list[Tool] = [
             "Mirror a solid across a plane (xy, xz, or yz). "
             "An optional center point can be specified."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "solid": _SOLID_SCHEMA,
@@ -136,7 +136,7 @@ TOOLS: list[Tool] = [
             "Scale a solid by independent factors along each axis. "
             "An optional center point can be specified."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "solid": _SOLID_SCHEMA,

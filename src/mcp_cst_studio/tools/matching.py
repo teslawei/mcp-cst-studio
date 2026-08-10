@@ -43,7 +43,7 @@ TOOLS: list[Tool] = [
             "impedance at a given frequency. Supports lowpass and highpass "
             "topologies. Pure Python computation — no CST connection needed."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "z_source_real": {
@@ -87,7 +87,7 @@ TOOLS: list[Tool] = [
             "Uses two back-to-back L-sections via a virtual resistance for "
             "controllable Q factor. Pure Python computation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "z_source_real": {
@@ -132,7 +132,7 @@ TOOLS: list[Tool] = [
             "Dual of Pi-network, uses two back-to-back L-sections. "
             "Pure Python computation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "z_source_real": {
@@ -177,7 +177,7 @@ TOOLS: list[Tool] = [
             "length and distance from the load using Smith chart transmission-line "
             "matching. Pure Python computation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "z_load_real": {
@@ -217,7 +217,7 @@ TOOLS: list[Tool] = [
             "and multi-section designs with maximally flat (binomial) or Chebyshev "
             "impedance profiles. Pure Python computation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "z_source": {
@@ -258,7 +258,7 @@ TOOLS: list[Tool] = [
             "Each component (inductor, capacitor, resistor) is placed as a CST "
             "LumpedElement with specified series/shunt connection."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "components": {
@@ -314,7 +314,7 @@ TOOLS: list[Tool] = [
             "operations. Returns transformed impedance, reflection coefficient, "
             "and VSWR. Pure Python computation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "z_in_real": {
@@ -364,7 +364,7 @@ TOOLS: list[Tool] = [
             "physical dimensions using the Hammerstad-Jensen model with optional "
             "Kirschning-Jansen frequency dispersion correction. Pure Python computation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "width_mm": {

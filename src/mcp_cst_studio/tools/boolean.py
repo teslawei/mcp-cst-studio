@@ -51,7 +51,7 @@ TOOLS: list[Tool] = [
             "Unite/add two solids together. The result replaces solid1 with the "
             "combined volume of both shapes."
         ),
-        inputSchema=_boolean_input_schema(
+        input_schema=_boolean_input_schema(
             'First solid (result kept here) in "Component:Solid" format',
             'Second solid (merged into first) in "Component:Solid" format',
         ),
@@ -62,7 +62,7 @@ TOOLS: list[Tool] = [
             "Subtract solid2 from solid1. The overlapping volume of solid2 is "
             "removed from solid1. Solid2 is deleted."
         ),
-        inputSchema=_boolean_input_schema(
+        input_schema=_boolean_input_schema(
             'Solid to subtract from in "Component:Solid" format',
             'Solid to subtract (removed) in "Component:Solid" format',
         ),
@@ -73,7 +73,7 @@ TOOLS: list[Tool] = [
             "Intersect two solids. Only the overlapping volume is kept, "
             "replacing solid1. Solid2 is deleted."
         ),
-        inputSchema=_boolean_input_schema(
+        input_schema=_boolean_input_schema(
             'First solid in "Component:Solid" format',
             'Second solid in "Component:Solid" format',
         ),
@@ -84,7 +84,7 @@ TOOLS: list[Tool] = [
             "Insert solid2 into solid1. Solid2 is embedded within solid1, "
             "maintaining both material regions at the overlap."
         ),
-        inputSchema=_boolean_input_schema(
+        input_schema=_boolean_input_schema(
             'Host solid in "Component:Solid" format',
             'Solid to insert in "Component:Solid" format',
         ),

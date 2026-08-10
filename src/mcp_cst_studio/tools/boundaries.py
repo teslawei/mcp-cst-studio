@@ -43,7 +43,7 @@ TOOLS: list[Tool] = [
             "the bounding box can be assigned an independent boundary type "
             "(open, electric, magnetic, periodic, etc.)."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "x_min": {
@@ -80,7 +80,7 @@ TOOLS: list[Tool] = [
             "Set the background material properties of the simulation domain. "
             "The background fills all space not occupied by defined solids."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "material": {
@@ -110,7 +110,7 @@ TOOLS: list[Tool] = [
             "assigned electric or magnetic symmetry, or none. Requires the "
             "model geometry and excitation to be compatible with the chosen symmetry."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "x_plane": {
@@ -138,7 +138,7 @@ TOOLS: list[Tool] = [
             "Set the simulation frequency range in GHz. This determines the "
             "bandwidth over which the solver computes results."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "f_min": {
@@ -160,7 +160,7 @@ TOOLS: list[Tool] = [
             "unit cell simulation. Sets X and Y boundaries to periodic and configures "
             "the phase shift for infinite array, FSS, and metasurface analysis."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "phase_x_deg": {
@@ -184,7 +184,7 @@ TOOLS: list[Tool] = [
             "Controls the number of Floquet modes and scan angle for phased array "
             "element simulation and oblique incidence analysis."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "num_modes": {

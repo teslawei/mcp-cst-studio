@@ -32,7 +32,7 @@ TOOLS: list[Tool] = [
             "IGES (.igs/.iges), STL (.stl), SAT/ACIS (.sat), DXF (.dxf), "
             "and OBJ (.obj) formats."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "file_path": {
@@ -61,7 +61,7 @@ TOOLS: list[Tool] = [
             "Export the current CST model (or a specific component) to a CAD format. "
             "Supports STL, SAT/ACIS, STEP, IGES, OBJ, and NASTRAN."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "file_path": {
@@ -91,7 +91,7 @@ TOOLS: list[Tool] = [
             "Import a Touchstone S-parameter file (.s1p, .s2p, .snp) into CST Studio "
             "for use as a reference or circuit element."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "file_path": {
@@ -115,7 +115,7 @@ TOOLS: list[Tool] = [
             "Export S-parameter simulation results to a Touchstone file. "
             "Requires a completed simulation with S-parameter data."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "file_path": {
@@ -140,7 +140,7 @@ TOOLS: list[Tool] = [
             "Export far-field radiation pattern data to a file. "
             "Requires a completed simulation with far-field monitor results."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "file_path": {

@@ -38,7 +38,7 @@ TOOLS: list[Tool] = [
             "the result tree; in offline mode returns VBA scripts and explains "
             "the CST result tree structure."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port_in": {
@@ -75,7 +75,7 @@ TOOLS: list[Tool] = [
             "radiation efficiency, and beam widths. Requires a farfield "
             "monitor at the specified frequency."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
@@ -102,7 +102,7 @@ TOOLS: list[Tool] = [
             "capture field distributions, far-field patterns, surface currents, "
             "or power flow at the desired frequency."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "monitor_type": {
@@ -140,7 +140,7 @@ TOOLS: list[Tool] = [
             "CST simulation. Returns real and imaginary impedance vs frequency. "
             "Useful for matching network design and feed optimization."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port": {
@@ -161,7 +161,7 @@ TOOLS: list[Tool] = [
             "quality: 1.0 is perfect match, <2.0 is generally acceptable. "
             "Can also be computed from S11: VSWR = (1+|S11|)/(1-|S11|)."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port": {
@@ -182,7 +182,7 @@ TOOLS: list[Tool] = [
             "phi) of maximum gain. Requires a farfield monitor at the "
             "specified frequency."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
@@ -202,7 +202,7 @@ TOOLS: list[Tool] = [
             "mismatch), radiation efficiency (excluding mismatch), and "
             "mismatch loss in dB."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
@@ -222,7 +222,7 @@ TOOLS: list[Tool] = [
             "discovering what simulation results are available before "
             "extracting specific data."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "tree_path": {
@@ -245,7 +245,7 @@ TOOLS: list[Tool] = [
             "Specify the result tree path and desired output format. Useful "
             "for post-processing results in external tools like MATLAB or Python."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "result_path": {
@@ -283,7 +283,7 @@ TOOLS: list[Tool] = [
             "and impedance. Useful for a quick design evaluation without "
             "querying each result type individually."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
             "required": [],
@@ -298,7 +298,7 @@ TOOLS: list[Tool] = [
             "Optionally unwraps the phase to remove 360-degree discontinuities. "
             "Useful for group delay analysis and phase-matching designs."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port_in": {
@@ -332,7 +332,7 @@ TOOLS: list[Tool] = [
             "represents the signal propagation delay through the device. "
             "Useful for UWB antenna and filter characterization."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port_in": {
@@ -358,7 +358,7 @@ TOOLS: list[Tool] = [
             "vs angle for the selected plane. Requires a farfield monitor at "
             "the specified frequency."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
@@ -403,7 +403,7 @@ TOOLS: list[Tool] = [
             "Ludwig-3, Ludwig-2, and circular polarization definitions. "
             "Requires a farfield monitor at the specified frequency."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
@@ -433,7 +433,7 @@ TOOLS: list[Tool] = [
             "of circular polarization: AR=0 dB is perfect CP, AR<3 dB is "
             "acceptable. Can plot AR vs angle or vs frequency."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
@@ -472,7 +472,7 @@ TOOLS: list[Tool] = [
             "current flow on antenna structures and identifying hot spots. "
             "Requires a surface current monitor at the specified frequency."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
@@ -500,7 +500,7 @@ TOOLS: list[Tool] = [
             "dielectric). Useful for identifying dominant loss mechanisms "
             "in antenna designs."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
@@ -520,7 +520,7 @@ TOOLS: list[Tool] = [
             "transmitted signal vs time. Useful for UWB pulse analysis, "
             "time-domain reflectometry, and transient response evaluation."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port": {
@@ -559,7 +559,7 @@ TOOLS: list[Tool] = [
             "coefficient: Z = Z0*(1+S11)/(1-S11). Returns real and imaginary "
             "parts of the normalized impedance for Smith chart plotting."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port": {
@@ -588,7 +588,7 @@ TOOLS: list[Tool] = [
             "threshold. Returns center frequency, bandwidth in MHz, and "
             "fractional bandwidth percentage."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "port": {
@@ -628,7 +628,7 @@ TOOLS: list[Tool] = [
             "for antenna pattern visualization and integration with external "
             "tools. Requires a farfield monitor at the specified frequency."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
@@ -667,7 +667,7 @@ TOOLS: list[Tool] = [
             "lossy volumes. Requires a current density monitor at the "
             "specified frequency."
         ),
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "frequency": {
