@@ -16,7 +16,14 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, cast
 
-from mcp.types import CallToolRequestParams, CallToolResult, ListToolsRequest, ListToolsResult, TextContent, Tool
+from mcp.types import (
+    CallToolRequestParams,
+    CallToolResult,
+    ListToolsRequest,
+    ListToolsResult,
+    TextContent,
+    Tool,
+)
 
 logger = logging.getLogger(__name__)
 
