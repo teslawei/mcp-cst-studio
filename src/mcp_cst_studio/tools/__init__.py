@@ -17,10 +17,14 @@ from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, cast
 
 from mcp.types import (
+    AudioContent,
     CallToolRequestParams,
     CallToolResult,
+    EmbeddedResource,
+    ImageContent,
     ListToolsRequest,
     ListToolsResult,
+    ResourceLink,
     TextContent,
     Tool,
 )
@@ -33,7 +37,10 @@ if TYPE_CHECKING:
     from mcp_cst_studio.cst_client import CSTClient
 
 # Type alias for an async tool handler
-ToolHandler = Callable[[str, dict], Awaitable[list[TextContent]]]
+ToolHandler = Callable[
+    [str, dict],
+    Awaitable[list[TextContent | ImageContent | AudioContent | ResourceLink | EmbeddedResource]],
+]
 
 
 class ToolRegistry:
@@ -93,7 +100,7 @@ class ToolRegistry:
             if handler is None:
                 raise ValueError(f"Unknown tool: {name}")
             logger.debug("Dispatching tool: %s", name)
-            content = await handler(name, arguments)
+            content = await handler(name, arguments or {})
             return CallToolResult(content=content)
 
         server.add_request_handler("tools/list", ListToolsRequest, handle_list_tools)
