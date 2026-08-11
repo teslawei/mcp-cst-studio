@@ -15,12 +15,6 @@ A Model Context Protocol (MCP) server providing AI-driven access to [CST Studio 
 ## Installation
 
 ```bash
-pip install mcp-cst-studio
-```
-
-Or from source:
-
-```bash
 git clone https://github.com/RFingAdam/mcp-cst-studio.git
 cd mcp-cst-studio
 pip install -e ".[dev]"
