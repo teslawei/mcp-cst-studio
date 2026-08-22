@@ -331,7 +331,7 @@ class CSTClient:
             try:
                 # Wait for any in-progress solver before starting
                 if self.is_solver_running():
-                    logger.info("Solver already running — waiting for it to finish")
+                    logger.info("Solver already running; waiting for it to finish")
                     wait_result = self.wait_for_solver()
                     if wait_result.get("status") == "error":
                         return wait_result

@@ -617,7 +617,7 @@ def _build_array_factor(args: dict) -> str:
     # Normalise and convert to dB
     peak = max(af_linear)
     if peak == 0:
-        raise ValueError("Array factor is identically zero — check weights")
+        raise ValueError("Array factor is identically zero; check weights")
 
     af_db: list[float] = []
     for val in af_linear:

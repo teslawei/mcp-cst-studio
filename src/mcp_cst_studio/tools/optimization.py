@@ -1099,7 +1099,7 @@ async def _optimization_loop(
 
         # Convergence check: cost is 0 (all bands pass)
         if best_cost == 0.0:
-            logger.info("All bands pass — converged at iteration %d", iteration)
+            logger.info("All bands pass; converged at iteration %d", iteration)
             break
 
     # Apply best parameters + final solve + export
