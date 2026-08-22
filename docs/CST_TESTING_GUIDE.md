@@ -92,7 +92,7 @@ Test 2.2: Create cylinder (Z-axis)
         center_x=20, center_y=0, center_z=0, range_min=0, range_max=10
   Expected: Cylinder along Z axis
 
-Test 2.3: Create cylinder (X-axis) — REGRESSION for issue #22
+Test 2.3: Create cylinder (X-axis): REGRESSION for issue #22
   Tool: cst_create_cylinder
   Args: component="component1", name="CylX", material="PEC",
         axis="x", outer_radius=5, inner_radius=0,
@@ -106,7 +106,7 @@ Test 2.4: Create sphere
   Expected: Sphere visible
 ```
 
-### Phase 3: Transforms — REGRESSION for issue #23
+### Phase 3: Transforms: REGRESSION for issue #23
 
 ```
 Test 3.1: Translate
@@ -133,7 +133,7 @@ Test 4.1: List built-in materials
   Args: category="metals"
   Expected: Returns copper, aluminum, gold, etc.
 
-Test 4.2: List substrates — REGRESSION for issue #29
+Test 4.2: List substrates: REGRESSION for issue #29
   Tool: cst_list_materials
   Args: category="substrates"
   Expected: Returns substrate materials (NOT dielectrics)
@@ -156,7 +156,7 @@ Test 5.1: Patch antenna
     - Frequency range set
     - Far-field monitor added
 
-Test 5.2: Horn antenna — REGRESSION for issues #2, #27
+Test 5.2: Horn antenna: REGRESSION for issues #2, #27
   Tool: cst_antenna_horn
   Args: frequency_ghz=10, gain_dbi=15
   Expected:
@@ -164,12 +164,12 @@ Test 5.2: Horn antenna — REGRESSION for issues #2, #27
     - Loft interior uses 3D profiles at different Z positions (not both at z=0)
     - Horn length ~3-4λ (reasonable for 15 dBi)
 
-Test 5.3: Yagi antenna — REGRESSION for issue #3
+Test 5.3: Yagi antenna: REGRESSION for issue #3
   Tool: cst_antenna_yagi
   Args: frequency_ghz=0.3, num_directors=5
   Expected: Reflector spacing ~0.20λ behind driven element (NOT 0.25λ)
 
-Test 5.4: Slot antenna — REGRESSION for issue #26
+Test 5.4: Slot antenna: REGRESSION for issue #26
   Tool: cst_antenna_slot
   Args: frequency_ghz=5.8
   Expected: Ground plane with slot CUT OUT (Solid.Subtract must execute)
@@ -183,7 +183,7 @@ Test 6.1: Waveguide port
   Args: port_number=1, orientation="zmin", x_min=-5, x_max=5, y_min=-5, y_max=5
   Expected: Port visible on boundary
 
-Test 6.2: Plane wave — REGRESSION for issue #24
+Test 6.2: Plane wave: REGRESSION for issue #24
   Tool: cst_add_plane_wave
   Args: polarization="linear", theta=0, phi=0
   Expected: VBA sets .Normal "z" and .Polarization "linear" (NOT .Normal "linear")
@@ -207,7 +207,7 @@ Test 7.3: Get S-parameters
   Expected: Returns S11 data with frequency/magnitude arrays
 ```
 
-### Phase 8: Export — REGRESSION for issue #25
+### Phase 8: Export: REGRESSION for issue #25
 
 ```
 Test 8.1: Export Touchstone
@@ -225,7 +225,7 @@ Test 8.2: Export CSV
 
 ## Known Limitations
 
-- **Issue #16**: Connected mode code paths have no automated tests — this guide IS the test
+- **Issue #16**: Connected mode code paths have no automated tests. This guide IS the test
 - VBA execution depends on CST version; some API methods may differ between 2024/2025/2026
 - `cst.interface.DesignEnvironment()` requires CST to not already have a running instance in some versions
 

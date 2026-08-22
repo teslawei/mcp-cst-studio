@@ -43,7 +43,7 @@ def mock_client() -> CSTClient:
 
 
 # ---------------------------------------------------------------------------
-# execute_vba — offline mode
+# execute_vba: offline mode
 # ---------------------------------------------------------------------------
 
 class TestExecuteVBAOffline:
@@ -67,7 +67,7 @@ class TestExecuteVBAOffline:
 
 
 # ---------------------------------------------------------------------------
-# execute_vba_silent — offline mode
+# execute_vba_silent: offline mode
 # ---------------------------------------------------------------------------
 
 class TestExecuteVbaSilentOffline:
@@ -83,7 +83,7 @@ class TestExecuteVbaSilentOffline:
 
 
 # ---------------------------------------------------------------------------
-# status() — offline mode
+# status(): offline mode
 # ---------------------------------------------------------------------------
 
 class TestStatusOffline:
@@ -119,7 +119,7 @@ class TestStatusOffline:
 
 
 # ---------------------------------------------------------------------------
-# new_project — offline mode stores path
+# new_project: offline mode stores path
 # ---------------------------------------------------------------------------
 
 class TestNewProjectOffline:
@@ -141,7 +141,7 @@ class TestNewProjectOffline:
 
 
 # ---------------------------------------------------------------------------
-# open_project — offline mode stores path
+# open_project: offline mode stores path
 # ---------------------------------------------------------------------------
 
 class TestOpenProjectOffline:
@@ -168,7 +168,7 @@ class TestOpenProjectOffline:
 
 
 # ---------------------------------------------------------------------------
-# save_project — offline mode
+# save_project: offline mode
 # ---------------------------------------------------------------------------
 
 class TestSaveProjectOffline:
@@ -186,7 +186,7 @@ class TestSaveProjectOffline:
 
 
 # ---------------------------------------------------------------------------
-# close_project — offline mode
+# close_project: offline mode
 # ---------------------------------------------------------------------------
 
 class TestCloseProjectOffline:
@@ -209,7 +209,7 @@ class TestCloseProjectOffline:
 
 
 # ---------------------------------------------------------------------------
-# connect() — offline mode (no CST library)
+# connect(): offline mode (no CST library)
 # ---------------------------------------------------------------------------
 
 class TestConnectOffline:
@@ -234,7 +234,7 @@ class TestDisconnect:
 
 
 # ---------------------------------------------------------------------------
-# execute_vba — connected mode (mocked)
+# execute_vba: connected mode (mocked)
 # ---------------------------------------------------------------------------
 
 class TestExecuteVbaConnected:
@@ -308,7 +308,7 @@ class TestExecuteVbaConnected:
 
 
 # ---------------------------------------------------------------------------
-# execute_vba_silent — connected mode (mocked)
+# execute_vba_silent: connected mode (mocked)
 # ---------------------------------------------------------------------------
 
 class TestExecuteVbaSilentConnected:

@@ -1,4 +1,4 @@
-"""Tests for parametric design tools — verify VBA generation in offline mode."""
+"""Tests for parametric design tools: verify VBA generation in offline mode."""
 
 from __future__ import annotations
 

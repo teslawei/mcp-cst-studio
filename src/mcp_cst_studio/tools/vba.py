@@ -150,7 +150,7 @@ def _load_vba_reference() -> dict:
                 grouped[cat] = {}
             grouped[cat][obj_name] = obj_data
     else:
-        # Already grouped or unknown format — use as-is
+        # Already grouped or unknown format. Use as-is
         grouped = raw
 
     _vba_reference = grouped
@@ -168,7 +168,7 @@ def _handle_execute_vba(args: dict, client: CSTClient) -> dict:
     if not code.strip():
         return {"status": "error", "message": "VBA code cannot be empty"}
 
-    # Safety validation — raises ValidationError on dangerous patterns
+    # Safety validation: raises ValidationError on dangerous patterns
     validate_vba_input(code)
 
     result = client.execute_vba(code)
@@ -209,7 +209,7 @@ def _handle_vba_help(args: dict) -> dict:
                     "usage_example": _build_usage_example(name, obj_data.get("methods", [])),
                 }
 
-    # Not found — list available objects as suggestion
+    # Not found: list available objects as suggestion
     all_objects = []
     for category, objects in ref.items():
         all_objects.extend(objects.keys())

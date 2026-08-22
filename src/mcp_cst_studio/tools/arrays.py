@@ -8,7 +8,7 @@ Provides 8 MCP tools for array synthesis:
   - Grating lobe analysis
   - Mutual coupling extraction setup (VBA)
 
-All VBA is generated through ``VBABuilder`` / ``VBAScript`` — no raw
+All VBA is generated through ``VBABuilder`` / ``VBAScript``. No raw
 f-strings.  Pure-Python tools use only ``math`` and ``cmath`` (no numpy).
 """
 
@@ -382,7 +382,7 @@ def _build_linear_array(args: dict) -> str:
     script.add_comment(f"Frequency: {freq} GHz, wavelength: {lam:.2f} mm")
     script.add_comment(f"Spacing = {spacing / lam:.3f} wavelengths")
 
-    # Element 1 is the original — copy for elements 2..N
+    # Element 1 is the original: copy for elements 2..N
     for i in range(1, num):
         dx = spacing * i if axis == "x" else 0.0
         dy = spacing * i if axis == "y" else 0.0
@@ -736,7 +736,7 @@ def _find_peak_sidelobe(
     null_left = 0
     for i in range(peak_idx - 1, 0, -1):
         if af_db[i] <= af_db[i - 1]:
-            # af_db started rising again — previous index was the minimum
+            # af_db started rising again: previous index was the minimum
             null_left = i
             break
 

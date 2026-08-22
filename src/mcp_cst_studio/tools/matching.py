@@ -41,7 +41,7 @@ TOOLS: list[Tool] = [
             "Design an L-section impedance matching network. Computes inductor "
             "and capacitor values for matching a source impedance to a load "
             "impedance at a given frequency. Supports lowpass and highpass "
-            "topologies. Pure Python computation — no CST connection needed."
+            "topologies. Pure Python computation. No CST connection needed."
         ),
         input_schema={
             "type": "object",
@@ -581,7 +581,7 @@ async def _handle_l_network(
     if abs(r_s - r_l) < 1e-6 and abs(x_s) < 1e-12 and abs(x_l) < 1e-12:
         return [TextContent(type="text", text=json.dumps({
             "status": "ok",
-            "message": "Impedances are already matched — no network needed.",
+            "message": "Impedances are already matched. No network needed.",
             "q_factor": 0,
             "topology": topology,
             "component_values": {},
@@ -749,7 +749,7 @@ async def _handle_pi_network(
         "component_values": component_values,
         "q_factor": round(q, 4),
         "virtual_resistance_ohm": round(r_v, 4),
-        "network_description": "Shunt C1 — Series L — Shunt C2 (lowpass Pi)",
+        "network_description": "Shunt C1: Series L: Shunt C2 (lowpass Pi)",
         "source_impedance": {"real": r_s, "imag": x_s},
         "load_impedance": {"real": r_l, "imag": x_l},
         "frequency_ghz": freq,
@@ -791,7 +791,7 @@ async def _handle_t_network(
     else:
         q = max(q_min + 1.0, 2.0)
 
-    # Virtual resistance (higher than both R_s and R_l) — dual of Pi
+    # Virtual resistance (higher than both R_s and R_l): dual of Pi
     r_v = r_small * (1.0 + q * q)
 
     # Source-side L-section: R_s to R_v (series element on source side)
@@ -846,7 +846,7 @@ async def _handle_t_network(
         "component_values": component_values,
         "q_factor": round(q, 4),
         "virtual_resistance_ohm": round(r_v, 4),
-        "network_description": "Series L1 — Shunt C — Series L2 (lowpass T)",
+        "network_description": "Series L1: Shunt C: Series L2 (lowpass T)",
         "source_impedance": {"real": r_s, "imag": x_s},
         "load_impedance": {"real": r_l, "imag": x_l},
         "frequency_ghz": freq,
@@ -893,7 +893,7 @@ async def _handle_stub_matching(
     if abs(g_l - 1.0) < 1e-6 and abs(b_l) < 1e-6:
         return [TextContent(type="text", text=json.dumps({
             "status": "ok",
-            "message": "Load is already matched to Z0 — no stub needed.",
+            "message": "Load is already matched to Z0. No stub needed.",
             "stub_length_mm": 0,
             "stub_length_wavelengths": 0,
             "distance_from_load_mm": 0,

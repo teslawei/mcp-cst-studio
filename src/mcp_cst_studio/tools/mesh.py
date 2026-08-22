@@ -85,7 +85,7 @@ TOOLS: list[Tool] = [
                 },
                 "refinement_factor": {
                     "type": "number",
-                    "description": "Refinement factor — mesh cells are divided by this value (default 2.0)",
+                    "description": "Refinement factor: mesh cells are divided by this value (default 2.0)",
                     "default": 2.0,
                 },
             },
@@ -114,7 +114,7 @@ TOOLS: list[Tool] = [
                 },
                 "threshold": {
                     "type": "number",
-                    "description": "Convergence threshold in dB — stop when S-parameter change is below this (default 0.02)",
+                    "description": "Convergence threshold in dB. Stop when S-parameter change is below this (default 0.02)",
                     "default": 0.02,
                 },
             },

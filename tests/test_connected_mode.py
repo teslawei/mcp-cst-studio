@@ -1,4 +1,4 @@
-"""Connected-mode tests — verify VBA dispatch hits modeler, not schematic.
+"""Connected-mode tests: verify VBA dispatch hits modeler, not schematic.
 
 Uses the ``mock_client`` fixture from conftest.py which patches CST_AVAILABLE
 and provides a MagicMock project with ``modeler.execute_vba_code`` returning "ok".
@@ -549,7 +549,7 @@ class TestParametersConnected:
 
 
 class TestAntennaTemplatesConnected:
-    """Antenna templates are pure computation — they return vba_script
+    """Antenna templates are pure computation. They return vba_script
     regardless of connected/offline mode. Verify VBA is generated.
     """
 

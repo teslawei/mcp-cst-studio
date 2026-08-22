@@ -40,7 +40,7 @@ TOOLS: list[Tool] = [
                 },
                 "value": {
                     "description": (
-                        "Parameter value — a number (e.g. 10.5) or a string expression "
+                        "Parameter value. A number (e.g. 10.5) or a string expression "
                         "referencing other parameters (e.g. 'patch_length / 2')."
                     ),
                 },
@@ -806,7 +806,7 @@ def _build_yield_analysis(args: dict) -> str:
     validate_positive(num_samples, "num_samples")
 
     script = VBAScript()
-    script.add_comment(f"Monte Carlo yield analysis — {num_samples} samples")
+    script.add_comment(f"Monte Carlo yield analysis: {num_samples} samples")
 
     # Configure parameter sweep with random sampling
     vba = VBABuilder("ParameterSweep").call("Reset")
@@ -820,7 +820,7 @@ def _build_yield_analysis(args: dict) -> str:
         low = nominal - tolerance
         high = nominal + tolerance
 
-        # CST uses linear sweep — we create enough steps to approximate random
+        # CST uses linear sweep. We create enough steps to approximate random
         vba.call_with_args(
             "AddParameter_Linear",
             param_name,

@@ -1,4 +1,4 @@
-"""Tests for import/export tools — verify VBA generation in offline mode."""
+"""Tests for import/export tools: verify VBA generation in offline mode."""
 
 from __future__ import annotations
 

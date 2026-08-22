@@ -6,7 +6,7 @@ A Model Context Protocol (MCP) server providing AI-driven access to [CST Studio 
 
 - **170 tools** across 20 categories: geometry, materials, ports, boundaries, mesh, solvers, simulation, results, parameters, antenna templates, arrays, matching networks, diagnostics, optimization, PCB, and more
 - **Dual-mode operation**: Connected mode (direct CST execution on Windows) and Offline mode (VBA script generation on any OS)
-- **13 parametric antenna templates**: Patch, dipole, monopole, horn, Yagi, helix, Vivaldi, slot, IFA, PIFA, spiral, bowtie — with automatic dimension calculations from target frequency
+- **13 parametric antenna templates**: Patch, dipole, monopole, horn, Yagi, helix, Vivaldi, slot, IFA, PIFA, spiral, bowtie: with automatic dimension calculations from target frequency
 - **PCB/SI tools**: Stackup creation, trace routing with impedance calculation, via modeling, ground planes
 - **Material database**: 30+ metals, dielectrics, and RF substrates with accurate electromagnetic properties
 - **VBA injection prevention**: All generated VBA passes through security validation
@@ -159,11 +159,11 @@ Add to your `.mcp.json` or Claude Desktop config:
 
 Once connected, verify with these prompts:
 
-1. **Connection**: "What is the CST connection status?" — should show `connected` mode
-2. **Geometry**: "Create a brick from (0,0,0) to (10,10,5) in component1" — should appear in CST
-3. **Antenna**: "Design a 2.4 GHz patch antenna on FR-4" — should build full model
-4. **Simulation**: "Run a time-domain simulation" — should start solver
-5. **Results**: "Show me the S-parameters" — should extract S11 data
+1. **Connection**: "What is the CST connection status?": should show `connected` mode
+2. **Geometry**: "Create a brick from (0,0,0) to (10,10,5) in component1": should appear in CST
+3. **Antenna**: "Design a 2.4 GHz patch antenna on FR-4": should build full model
+4. **Simulation**: "Run a time-domain simulation": should start solver
+5. **Results**: "Show me the S-parameters": should extract S11 data
 
 ## Development
 

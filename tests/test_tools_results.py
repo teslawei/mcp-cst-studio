@@ -1,4 +1,4 @@
-"""Tests for result extraction tools — verify VBA generation in offline mode."""
+"""Tests for result extraction tools: verify VBA generation in offline mode."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ async def test_add_field_monitor(client: CSTClient):
     )
     assert len(result) == 1
     data = json.loads(result[0].text)
-    # execute_vba returns {"status": "offline", "vba": code} — annotated with monitor metadata
+    # execute_vba returns {"status": "offline", "vba": code}: annotated with monitor metadata
     vba = data.get("vba", "")
     assert "Monitor" in vba
     assert "Efield" in vba or "FieldType" in vba

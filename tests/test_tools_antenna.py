@@ -1,4 +1,4 @@
-"""Tests for antenna template tools — verify RF calculations and VBA generation."""
+"""Tests for antenna template tools: verify RF calculations and VBA generation."""
 
 from __future__ import annotations
 

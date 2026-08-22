@@ -11,10 +11,10 @@ This is the complete test plan for validating all 107 tools in the MCP-CST-Studi
 
 ## Execution Notes
 
-- Run tests in order — later phases depend on geometry created in earlier phases
+- Run tests in order: later phases depend on geometry created in earlier phases
 - After each tool call, verify the response contains `"status": "executed"` or `"status": "ok"` (not `"status": "offline"`)
 - If any test fails, log the tool name, arguments, response, and any VBA error message
-- Tests marked **[REGRESSION]** are verifying fixes for specific bugs — pay extra attention
+- Tests marked **[REGRESSION]** are verifying fixes for specific bugs: pay extra attention
 
 ---
 
@@ -76,7 +76,7 @@ PASS if: status == "opened"
 ```
 Tool: cst_export_project
 Args: {"format": "png"}
-PASS if: no error (may require geometry first — acceptable to defer)
+PASS if: no error (may require geometry first: acceptable to defer)
 ```
 
 ---
@@ -848,7 +848,7 @@ PASS if:
   - Horn flare with lofted interior
   - Loft rear profile at z=0, front profile at z=horn_length (NOT both at z=0)
   - Horn length ~3-4λ for 15 dBi
-VERIFY: Check "horn_length_mm" in response calc data — should be ~90-130 mm
+VERIFY: Check "horn_length_mm" in response calc data: should be ~90-130 mm
 ```
 
 ### Test 14.6: Yagi Antenna [REGRESSION #3]

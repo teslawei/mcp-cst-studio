@@ -1,7 +1,7 @@
 """Diagnostic tools for CST Studio Suite.
 
 Provides tools for managing simulation results, reading project
-messages/logs, and handling CST dialog windows — essential for
+messages/logs, and handling CST dialog windows: essential for
 preventing blocking popups during automation.
 
 - ``cst_delete_results``: Delete simulation results (prevents stale-result dialogs)
@@ -89,7 +89,7 @@ TOOLS: list[Tool] = [
             "dismisses CST dialog windows as they appear. Essential for "
             "long-running operations like optimization loops where dialogs "
             "would otherwise block execution. The watcher logs every dialog "
-            "it dismisses — retrieve the log with cst_stop_dialog_watcher."
+            "it dismisses: retrieve the log with cst_stop_dialog_watcher."
         ),
         input_schema={
             "type": "object",

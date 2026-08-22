@@ -625,7 +625,7 @@ TOOLS: list[Tool] = [
             "Calculate electromagnetic coupling between parallel PCB traces. "
             "Computes even/odd mode impedances, coupling coefficient, and "
             "near-end/far-end crosstalk estimates using coupled microstrip formulas. "
-            "Pure calculation — no VBA or CST geometry is generated."
+            "Pure calculation. No VBA or CST geometry is generated."
         ),
         input_schema={
             "type": "object",

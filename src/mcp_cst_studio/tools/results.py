@@ -1080,7 +1080,7 @@ def _build_export_result_vba(
         ]
         script.add_raw("\n".join(lines))
     elif fmt in ("csv", "txt"):
-        # Use CST's built-in ASCIIExport object — avoids raw file I/O
+        # Use CST's built-in ASCIIExport object: avoids raw file I/O
         # that would be blocked by the VBA security validator.
         # Note: CST ASCIIExport always uses space-separated columns regardless
         # of SetfileType. SetSeparator/StepWidth do NOT exist in CST 2025.

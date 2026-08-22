@@ -1,4 +1,4 @@
-"""Tests for raw VBA access tools — offline safety validation and reference lookup."""
+"""Tests for raw VBA access tools: offline safety validation and reference lookup."""
 
 from __future__ import annotations
 

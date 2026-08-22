@@ -76,7 +76,7 @@ def validate_vba_input(vba_code: str) -> str:
 
 
 def validate_file_path(path: str, work_dir: str | None = None) -> str:
-    """Validate a file path — block traversal and enforce work_dir confinement."""
+    """Validate a file path: block traversal and enforce work_dir confinement."""
     import os
 
     if not path:

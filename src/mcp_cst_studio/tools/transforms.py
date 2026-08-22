@@ -222,7 +222,7 @@ def _build_rotate(args: dict) -> str:
     vba.set("Center Y", "0")
     vba.set("Center Z", "0")
 
-    # Set the rotation axis — only the selected axis gets the angle
+    # Set the rotation axis: only the selected axis gets the angle
     if axis == "x":
         vba.set("PlaneNormal", "x")
     elif axis == "y":

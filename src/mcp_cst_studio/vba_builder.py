@@ -1,7 +1,7 @@
 """Safe VBA code generation using builder pattern.
 
 All VBA code destined for CST Studio is generated through this module.
-Direct string interpolation of user input into VBA is forbidden — use
+Direct string interpolation of user input into VBA is forbidden. Use
 VBABuilder methods which handle escaping and validation.
 """
 

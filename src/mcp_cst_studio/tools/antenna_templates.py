@@ -52,7 +52,7 @@ TOOLS: list[Tool] = [
                 },
                 "epsilon_r": {
                     "type": "number",
-                    "description": "Substrate relative permittivity (default 4.4 — FR-4)",
+                    "description": "Substrate relative permittivity (default 4.4: FR-4)",
                     "default": 4.4,
                 },
                 "tan_d": {
@@ -236,7 +236,7 @@ TOOLS: list[Tool] = [
                 },
                 "epsilon_r": {
                     "type": "number",
-                    "description": "Substrate relative permittivity (default 2.2 — Rogers)",
+                    "description": "Substrate relative permittivity (default 2.2: Rogers)",
                     "default": 2.2,
                 },
                 "taper_length_factor": {
@@ -710,14 +710,14 @@ def _build_patch_antenna(args: dict) -> str:
 
     # Feed
     if feed_type == "inset":
-        # Inset notch — left slot
+        # Inset notch: left slot
         script.add_raw(_build_brick(
             "Antenna", "InsetSlotL", "Vacuum",
             -feed_w / 2 - inset_gap, -feed_w / 2,
             -L / 2 - 0.1, -L / 2 + inset_depth,
             h, h + 0.035,
         ))
-        # Inset notch — right slot
+        # Inset notch: right slot
         script.add_raw(_build_brick(
             "Antenna", "InsetSlotR", "Vacuum",
             feed_w / 2, feed_w / 2 + inset_gap,
@@ -772,7 +772,7 @@ def _build_patch_antenna(args: dict) -> str:
         script.add_block(port_vba)
 
     elif feed_type == "probe":
-        # Coaxial probe — cylinder from ground to patch
+        # Coaxial probe: cylinder from ground to patch
         probe_x = 0.0
         probe_y = -L / 2 + inset_depth  # same position as inset would be
         script.add_raw(_build_cylinder(
@@ -1049,7 +1049,7 @@ def _build_horn_antenna(args: dict) -> str:
     B1 = math.sqrt(A_phys / aspect)
     A1 = A_phys / B1
 
-    # Horn length from Balanis — optimum horn
+    # Horn length from Balanis: optimum horn
     # R_H (E-plane slant) = B1^2 / (2*lambda), R_E similar
     # Axial length L ~ R_H for moderate gain
     R_H = B1 ** 2 / (2 * lam0)
@@ -1109,7 +1109,7 @@ def _build_horn_antenna(args: dict) -> str:
     # Use two bricks: outer horn shell and inner vacuum cutout
 
     # Outer horn shell (tapered box approximation using a brick
-    # at mid-cross-section — CST actually needs loft; use brick endpoints)
+    # at mid-cross-section: CST actually needs loft; use brick endpoints)
     # For VBA simplicity, create outer shell as a large brick
     # then subtract inner taper.  This is simplified geometry.
     script.add_raw(_build_brick(
@@ -1271,7 +1271,7 @@ def _build_yagi_antenna(args: dict) -> str:
             .set_double("Zrange", z_pos - wire_r, z_pos + wire_r)
         )
         # Cylinder axis is x, so use Xrange for the element length
-        # Reset — CST Cylinder Zrange is always the axis range,
+        # Reset: CST Cylinder Zrange is always the axis range,
         # but we set Axis=x, so we use the range on x
         elem_vba2 = (
             VBABuilder("Cylinder")
@@ -1393,7 +1393,7 @@ def _build_helix_antenna(args: dict) -> str:
             -0.5, 0,
         ))
 
-    # Helix coil — analytical curve
+    # Helix coil: analytical curve
     # Parametric: x = R*cos(t), y = R*sin(t), z = pitch/(2*pi) * t
     # t from 0 to 2*pi*n_turns
     t_max_val = 2 * math.pi * n_turns
@@ -2250,7 +2250,7 @@ _TEMPLATE_CATALOG = [
     {
         "tool": "cst_antenna_dipole",
         "name": "Half-Wave Dipole",
-        "description": "Classic half-wavelength dipole — fundamental reference antenna.",
+        "description": "Classic half-wavelength dipole: fundamental reference antenna.",
         "use_cases": ["Reference measurements", "VHF/UHF", "FM radio"],
         "polarization": "Linear",
         "bandwidth": "Moderate (~10%)",
@@ -2259,7 +2259,7 @@ _TEMPLATE_CATALOG = [
     {
         "tool": "cst_antenna_monopole",
         "name": "Quarter-Wave Monopole",
-        "description": "Monopole over ground plane — half of a dipole with image theory.",
+        "description": "Monopole over ground plane: half of a dipole with image theory.",
         "use_cases": ["Vehicle antennas", "base stations", "IoT"],
         "polarization": "Vertical linear",
         "bandwidth": "Moderate (~10%)",
@@ -2392,7 +2392,7 @@ async def handle(
     """Handle an antenna template tool call.
 
     For design-template tools the VBA is generated but *not* automatically
-    executed — the complete script is returned so the user can review
+    executed: the complete script is returned so the user can review
     calculated parameters before committing to CST.
     """
     handler_fn = _HANDLERS.get(name)

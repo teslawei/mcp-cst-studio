@@ -32,7 +32,7 @@ def mock_client() -> CSTClient:
     """CSTClient with mocked CST connection for testing connected mode.
 
     The mock project exposes ``modeler.execute_vba_code`` which returns
-    ``"ok"`` by default — matching the real CST Python API for MWS projects.
+    ``"ok"`` by default: matching the real CST Python API for MWS projects.
     Patches ``CST_AVAILABLE`` so the ``connected`` property returns True.
     """
     config = CSTConfig(

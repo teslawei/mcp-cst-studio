@@ -98,7 +98,7 @@ TOOLS: list[Tool] = [
         name="cst_stop_simulation",
         description=(
             "Stop and abort a running CST simulation. "
-            "Unlike pause, a stopped simulation cannot be resumed — "
+            "Unlike pause, a stopped simulation cannot be resumed: "
             "it must be restarted from the beginning."
         ),
         input_schema={
@@ -241,7 +241,7 @@ def _handle_get_status(client: CSTClient) -> list[TextContent]:
         )
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
-    # Offline mode — provide guidance
+    # Offline mode: provide guidance
     result = {
         "status": "offline",
         "message": (
@@ -259,10 +259,10 @@ def _handle_get_status(client: CSTClient) -> list[TextContent]:
             "progress = Solver.GetProgress"
         ),
         "available_fields": {
-            "running": "Boolean — whether a simulation is currently active",
-            "progress": "Double — completion percentage (0-100)",
-            "mesh_cells": "Long — number of mesh cells (after meshing)",
-            "current_step": "Long — current time step (time domain only)",
+            "running": "Boolean, whether a simulation is currently active",
+            "progress": "Double: completion percentage (0-100)",
+            "mesh_cells": "Long: number of mesh cells (after meshing)",
+            "current_step": "Long: current time step (time domain only)",
         },
     }
     return [TextContent(type="text", text=json.dumps(result, indent=2))]

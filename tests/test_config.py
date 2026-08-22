@@ -204,7 +204,7 @@ class TestCSTConfigFromEnv:
 
 
 # ---------------------------------------------------------------------------
-# _auto_detect_cst() — path detection
+# _auto_detect_cst(): path detection
 # ---------------------------------------------------------------------------
 
 class TestAutoDetectCST:

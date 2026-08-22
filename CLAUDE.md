@@ -1,9 +1,9 @@
-# CST Studio MCP Server — Development Guide
+# CST Studio MCP Server: Development Guide
 
 ## Architecture
 
 - **Dual-mode**: Connected (Windows+CST) and Offline (any OS, generates VBA scripts)
-- **VBA Builder pattern**: All VBA generated via `vba_builder.py` — never use raw f-strings for VBA
+- **VBA Builder pattern**: All VBA generated via `vba_builder.py`: never use raw f-strings for VBA
 - **Modular tools**: Each `tools/*.py` exports `TOOLS` list + `handle()` function + `register_*_tools()`
 - **ToolRegistry**: `tools/__init__.py` collects all tools via `_registry.add_module(TOOLS, handle, client)` and wires single `list_tools`/`call_tool` handlers
 - **Offline-first**: Server works fully on Linux/macOS. VBA scripts generated for manual execution in CST
@@ -46,7 +46,7 @@
 
 1. Add `Tool()` definition to the module's `TOOLS` list with proper inputSchema
 2. Add handler in the module's `handle()` function (inside the try/except)
-3. Use `VBABuilder` for all VBA generation — never raw f-strings
+3. Use `VBABuilder` for all VBA generation: never raw f-strings
 4. Validate all inputs via `validators.py` functions
 5. Return `list[TextContent]` with JSON response
 6. Register in `tools/__init__.py` via `register_*_tools()`
@@ -67,16 +67,16 @@ All `handle()` functions return consistent error format:
 
 - Every `handle()` must wrap its body in `try/except Exception as e`
 - Internal validation errors (e.g., bad enum value) return the same format
-- Never raise exceptions from handle() — always return TextContent with error JSON
+- Never raise exceptions from handle(): always return TextContent with error JSON
 
 ## Security Rules
 
-- All VBA passes through `validate_vba_input()` — blocks Shell, CreateObject, file I/O, Declare, SendKeys
+- All VBA passes through `validate_vba_input()`: blocks Shell, CreateObject, file I/O, Declare, SendKeys
 - All file paths checked for traversal (`..`) via `validate_file_path()`
 - All names restricted to `[A-Za-z_][A-Za-z0-9_ .-]*` via `validate_name()`
 - Component paths validated via `validate_component_path()`
-- VBA strings escaped via `_escape_vba_string()` — blocks concatenation injection
-- No hardcoded paths — everything via env vars or auto-detection
+- VBA strings escaped via `_escape_vba_string()`: blocks concatenation injection
+- No hardcoded paths: everything via env vars or auto-detection
 
 ## Testing
 
@@ -85,7 +85,7 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-Tests run in offline mode — no CST installation needed. The offline client returns `{"status": "offline", "vba": code}` for all execute_vba calls.
+Tests run in offline mode. No CST installation needed. The offline client returns `{"status": "offline", "vba": code}` for all execute_vba calls.
 
 ### Test Pattern
 ```python
@@ -114,6 +114,6 @@ mcp-cst-studio  # runs stdio server
 ```
 
 Environment variables:
-- `CST_PATH` — CST installation directory (auto-detected on Windows)
-- `CST_WORK_DIR` — Working directory for projects (default: ~/cst_projects)
-- `CST_VERSION` — CST version year (default: 2026)
+- `CST_PATH`: CST installation directory (auto-detected on Windows)
+- `CST_WORK_DIR`: Working directory for projects (default: ~/cst_projects)
+- `CST_VERSION`: CST version year (default: 2026)

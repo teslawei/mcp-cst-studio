@@ -59,7 +59,7 @@ class CSTClient:
         if not CST_AVAILABLE:
             return {
                 "status": "offline",
-                "message": "CST Python library not available. Running in offline mode — "
+                "message": "CST Python library not available. Running in offline mode: "
                 "VBA scripts will be generated but not executed.",
             }
 
@@ -81,7 +81,7 @@ class CSTClient:
                     "open_projects": len(open_projects) if open_projects else 0,
                 }
 
-            # No running instance — launch a new one
+            # No running instance: launch a new one
             self._de = cst.interface.DesignEnvironment()
             self._config.connected = True
             return {"status": "connected", "message": "Launched new CST Design Environment"}
@@ -347,7 +347,7 @@ class CSTClient:
         """Export a result tree item to CSV via Python API (no history entry).
 
         Uses ``model3d.SelectTreeItem()`` + ``model3d.ASCIIExport`` Python
-        methods directly — avoids VBA and history bloat.  Works regardless of
+        methods directly: avoids VBA and history bloat.  Works regardless of
         the current CST view state.
 
         Validates that the output file was actually created after export.
@@ -417,7 +417,7 @@ class CSTClient:
     def delete_results(self) -> dict:
         """Delete solver results via ``model3d.DeleteResults()``.
 
-        This is critical before rebuilding with new parameters — without
+        This is critical before rebuilding with new parameters: without
         deleting results first, the solver may return cached/stale data
         even after a ``Rebuild()``.
 
@@ -446,11 +446,11 @@ class CSTClient:
         Uses the Python API directly (no VBA, no history entries).  The
         correct sequence to get fresh results after a parameter change is:
 
-        1. ``StoreParameter`` — update parameter table
-        2. ``DeleteResults`` — clear cached solver results
-        3. ``Rebuild`` — rebuild geometry from history with new values
-        4. ``run_solver`` — run a fresh simulation
-        5. (optional) ``ASCIIExport`` — export S-parameter data
+        1. ``StoreParameter``: update parameter table
+        2. ``DeleteResults``: clear cached solver results
+        3. ``Rebuild``: rebuild geometry from history with new values
+        4. ``run_solver``. Run a fresh simulation
+        5. (optional) ``ASCIIExport``: export S-parameter data
 
         Without ``DeleteResults`` before ``Rebuild``, the solver returns
         stale cached data even though the parameter values have changed.

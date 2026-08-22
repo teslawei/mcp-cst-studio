@@ -21,7 +21,7 @@ TOOLS: list[Tool] = [
         name="cst_configure_time_domain_solver",
         description=(
             "Configure the time domain (transient) solver. This is CST's flagship solver "
-            "for broadband simulations — it excites the structure with a pulse and computes "
+            "for broadband simulations. It excites the structure with a pulse and computes "
             "S-parameters, fields, and farfield across the entire frequency range in a single run."
         ),
         input_schema={
@@ -29,7 +29,7 @@ TOOLS: list[Tool] = [
             "properties": {
                 "accuracy": {
                     "type": "number",
-                    "description": "Accuracy level in dB — solver stops when energy has decayed to this level (default -40)",
+                    "description": "Accuracy level in dB: solver stops when energy has decayed to this level (default -40)",
                     "default": -40,
                 },
                 "max_time_steps": {
@@ -122,7 +122,7 @@ TOOLS: list[Tool] = [
                 },
                 "f_min": {
                     "type": "number",
-                    "description": "Lower frequency bound in GHz — modes below this are skipped (default 0)",
+                    "description": "Lower frequency bound in GHz: modes below this are skipped (default 0)",
                     "default": 0,
                 },
             },

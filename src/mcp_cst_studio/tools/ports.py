@@ -629,7 +629,7 @@ async def _handle_floquet_port(
 async def _handle_list_ports(
     arguments: dict, client: CSTClient
 ) -> list[TextContent]:
-    # Build VBA that queries port count — CST returns results via execute_vba
+    # Build VBA that queries port count: CST returns results via execute_vba
     vba_code = (
         'Dim n As Long\n'
         'n = Port.StartPortNumberIteration()\n'

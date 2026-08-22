@@ -24,7 +24,7 @@ def fresh_registry() -> ToolRegistry:
 
 
 # ---------------------------------------------------------------------------
-# ToolRegistry — basic behaviour
+# ToolRegistry: basic behaviour
 # ---------------------------------------------------------------------------
 
 class TestToolRegistryBasic:
@@ -54,7 +54,7 @@ class TestToolRegistryBasic:
 
 
 # ---------------------------------------------------------------------------
-# ToolRegistry — add_module
+# ToolRegistry: add_module
 # ---------------------------------------------------------------------------
 
 class TestToolRegistryAddModule:
@@ -86,7 +86,7 @@ class TestToolRegistryAddModule:
 
 
 # ---------------------------------------------------------------------------
-# register_all_tools — total count
+# register_all_tools: total count
 # ---------------------------------------------------------------------------
 
 class TestRegisterAllTools:
@@ -166,7 +166,7 @@ class TestRegisterAllTools:
 
 
 # ---------------------------------------------------------------------------
-# tool_names — enumerate names via _tools list
+# tool_names: enumerate names via _tools list
 # ---------------------------------------------------------------------------
 
 class TestToolNames:

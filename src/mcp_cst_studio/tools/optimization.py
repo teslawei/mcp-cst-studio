@@ -40,7 +40,7 @@ TOOLS: list[Tool] = [
         description=(
             "Evaluate current antenna simulation results against performance goals. "
             "Exports S-parameter data and checks VSWR (or return loss) against "
-            "per-band targets. Read-only — does not modify the model. "
+            "per-band targets. Read-only. Does not modify the model. "
             "Returns pass/fail per band, worst VSWR, and detected resonances."
         ),
         input_schema={
@@ -92,7 +92,7 @@ TOOLS: list[Tool] = [
             "provides resonance-based design recommendations (e.g. shift resonance "
             "up/down, widen bandwidth). Returns per-band worst/best VSWR, match "
             "quality classification, nearest resonance info, and actionable "
-            "design guidance. Read-only — does not modify the model."
+            "design guidance. Read-only. Does not modify the model."
         ),
         input_schema={
             "type": "object",
@@ -155,7 +155,7 @@ TOOLS: list[Tool] = [
             "Each iteration sets parameters, runs the solver, exports S11, and "
             "evaluates against targets. Uses silent VBA execution to avoid "
             "history bloat. Applies the best parameters permanently at the end. "
-            "Connected mode only — requires a live CST session with a solvable project."
+            "Connected mode only: requires a live CST session with a solvable project."
         ),
         input_schema={
             "type": "object",
@@ -486,10 +486,10 @@ def _classify_mismatch(r: float, x: float, z0: float = 50.0) -> dict:
     # Resistive classification
     if r_ratio > 1.5:
         r_class = "high"
-        r_desc = f"R={r:.1f}Ω is {r_ratio:.1f}× target ({z0:.0f}Ω) — too high"
+        r_desc = f"R={r:.1f}Ω is {r_ratio:.1f}× target ({z0:.0f}Ω): too high"
     elif r_ratio < 0.67:
         r_class = "low"
-        r_desc = f"R={r:.1f}Ω is {r_ratio:.1f}× target ({z0:.0f}Ω) — too low"
+        r_desc = f"R={r:.1f}Ω is {r_ratio:.1f}× target ({z0:.0f}Ω): too low"
     else:
         r_class = "ok"
         r_desc = f"R={r:.1f}Ω is close to target ({z0:.0f}Ω)"
@@ -497,13 +497,13 @@ def _classify_mismatch(r: float, x: float, z0: float = 50.0) -> dict:
     # Reactive classification
     if abs(x) < 10:
         x_class = "ok"
-        x_desc = f"X={x:+.1f}Ω — near resonance"
+        x_desc = f"X={x:+.1f}Ω: near resonance"
     elif x > 0:
         x_class = "inductive"
-        x_desc = f"X={x:+.1f}Ω — inductive (antenna electrically long)"
+        x_desc = f"X={x:+.1f}Ω: inductive (antenna electrically long)"
     else:
         x_class = "capacitive"
-        x_desc = f"X={x:+.1f}Ω — capacitive (antenna electrically short)"
+        x_desc = f"X={x:+.1f}Ω: capacitive (antenna electrically short)"
 
     # Overall severity
     g_r, g_i = z_to_gamma(r, x, z0)

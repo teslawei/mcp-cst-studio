@@ -1,13 +1,13 @@
 """Windows dialog handler for CST Studio Suite.
 
 Detects, reads, and dismisses CST modal dialogs that block automation.
-Uses Win32 API via ctypes — no external dependencies beyond the stdlib.
+Uses Win32 API via ctypes. No external dependencies beyond the stdlib.
 
 **Detection strategy (two-tier):**
 
-1. **Process-based** — find CST main-window PIDs, then catch *any* popup or
+1. **Process-based**: find CST main-window PIDs, then catch *any* popup or
    dialog window belonging to those processes (regardless of title).
-2. **Title-pattern fallback** — match known CST dialog titles even if the
+2. **Title-pattern fallback**: match known CST dialog titles even if the
    process-based detection misses them.
 
 This ensures that *all* CST dialogs are caught, including frequency-range

@@ -259,11 +259,11 @@ class TestComputeCost:
 class TestVBAGeneration:
     def test_set_params_vba(self):
         vba = _set_params_vba({"arm_length": 26.5, "branch_len": 14.0})
-        # Raw VBA for add_to_history — no Sub Main wrapper
+        # Raw VBA for add_to_history. No Sub Main wrapper
         assert "Sub Main()" not in vba
         assert 'StoreParameter "arm_length", "26.5"' in vba
         assert 'StoreParameter "branch_len", "14.0"' in vba
-        # No rebuild commands — solver triggers rebuild automatically
+        # No rebuild commands: solver triggers rebuild automatically
         assert "RebuildOnParametricChange" not in vba
         assert "DeleteAllResults" not in vba
 
@@ -296,7 +296,7 @@ class TestVBAGeneration:
     def test_run_solver_vba(self):
         vba = _run_solver_vba()
         assert "Solver.Start" in vba
-        # Raw VBA for add_to_history — no Sub Main wrapper
+        # Raw VBA for add_to_history. No Sub Main wrapper
         assert "Sub Main()" not in vba
 
     def test_export_s11_vba(self):
@@ -305,7 +305,7 @@ class TestVBAGeneration:
         assert "S1,1" in vba
         assert "ASCIIExport" in vba
         assert "C:/cst_projects/test.csv" in vba
-        # Raw VBA for add_to_history — no Sub Main wrapper
+        # Raw VBA for add_to_history. No Sub Main wrapper
         assert "Sub Main()" not in vba
 
     def test_export_s11_vba_port2(self):
@@ -753,7 +753,7 @@ class TestZToGamma:
         assert 7.0 < rl < 12.0
 
     def test_high_impedance_5ghz(self):
-        """Z = 132 + j61Ω (from our 5.4 GHz data) — should show poor match."""
+        """Z = 132 + j61Ω (from our 5.4 GHz data): should show poor match."""
         g_r, g_i = z_to_gamma(131.79, 61.16, z0=50.0)
         g_m = gamma_mag(g_r, g_i)
         vswr = gamma_to_vswr(g_m)
@@ -816,7 +816,7 @@ class TestClassifyMismatch:
         assert result["x_class"] == "ok"
 
     def test_pifa_5ghz_mismatch(self):
-        """Real-world: 132+j61 at 5.4 GHz — high R, inductive."""
+        """Real-world: 132+j61 at 5.4 GHz: high R, inductive."""
         result = _classify_mismatch(131.79, 61.16, z0=50.0)
         assert result["r_class"] == "high"
         assert result["x_class"] == "inductive"

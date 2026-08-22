@@ -128,7 +128,7 @@ async def handle(
         validate_component_path(solid1)
         validate_component_path(solid2)
 
-        # Boolean ops use direct Solid.<Op> calls — no With block needed
+        # Boolean ops use direct Solid.<Op> calls. No With block needed
         vba = VBABuilder("Solid")
         vba.raw_line(f'Solid.{operation} "{solid1}", "{solid2}"')
         script = vba.build()
