@@ -168,8 +168,16 @@ _CST_DIALOG_PATTERNS = [
 
 
 def _is_cst_main_window(title: str) -> bool:
-    """Return True if *title* looks like a CST main application window."""
+    """Return True if *title* looks like a CST main application window.
+
+    Dialog titles like ``CST MICROWAVE STUDIO - History Error`` contain the
+    ``cst microwave studio -`` substring and would otherwise be misclassified
+    as main windows (excluding them from dialog detection in find_cst_dialogs
+    pass 2). Dialog-ish titles are therefore rejected first.
+    """
     t = title.lower()
+    if any(w in t for w in ("error", "warning", "incompatible")):
+        return False
     return any(kw in t for kw in _CST_MAIN_WINDOW_KEYWORDS)
 
 
