@@ -20,6 +20,13 @@ try:
 except ImportError:
     CST_AVAILABLE = False
 
+# CST 2024 workaround: official cst.interface.DesignEnvironment.connect raises
+# "__class__ assignment: layout differs" (pybind bug). Use raw _cst_interface.
+try:
+    import _cst_interface as _ci  # type: ignore[import-untyped]
+except ImportError:
+    _ci = None
+
 
 class CSTClient:
     """Manages CST Studio Suite connection.
@@ -65,6 +72,22 @@ class CSTClient:
 
         try:
             # Try connecting to an already-running CST instance first
+            if _ci is not None:
+                running = _ci.running_design_environments()
+                if running:
+                    _de = _ci.DesignEnvironment.connect(running[0])
+                    projects = _de.get_open_projects()
+                    self._de = _de
+                    self._config.connected = True
+                    if projects:
+                        self._project = projects[0]
+                        fname = self._project.filename
+                        self._project_path = str(fname() if callable(fname) else fname)
+                    return {
+                        "status": "connected",
+                        "message": f"Connected to running CST instance (PID {running[0]}) via _cst_interface",
+                        "open_projects": len(projects) if projects else 0,
+                    }
             running = cst.interface.running_design_environments()
             if running:
                 self._de = cst.interface.DesignEnvironment.connect(running[0])
@@ -229,6 +252,17 @@ class CSTClient:
                 watcher.start()
                 try:
                     result = self._project.model3d.add_to_history(label, vba_code)
+                except Exception:
+                    # A failed add_to_history pops a modal History Error
+                    # dialog that can linger asynchronously after the COM
+                    # call unwinds — sweep it before re-raising.
+                    time.sleep(1.0)
+                    lingering = dismiss_cst_dialogs()
+                    for d in lingering:
+                        d["timestamp"] = time.time()
+                        with watcher._lock:
+                            watcher._log.append(d)
+                    raise
                 finally:
                     watcher.stop()
                 response: dict = {
