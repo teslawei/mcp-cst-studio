@@ -88,11 +88,14 @@ if _IS_WINDOWS:
         ``&`` accelerator prefixes).  Falls through a priority list:
         exact match → ``&``-stripped match → IDOK (dialog item 1).
 
-        Uses ``SendMessageTimeoutW(BM_CLICK)`` — plain ``PostMessageW``
-        does not dismiss CST modal History Error boxes (validated
-        2026-08-30 against CST 2024).
+        Uses blocking ``SendMessageW(BM_CLICK)`` — ``PostMessageW`` does not
+        dismiss CST modal History Error boxes at all, and the non-blocking
+        ``SendMessageTimeoutW`` variant returns before the click is
+        processed (observed: dialog stays up on ~half the attempts).
+        Blocking send is safe here: the dialog is a separate CST error
+        host process (pid differs from the main window), so a hung dialog
+        cannot deadlock *this* process; SMTO-style timeouts are pointless.
         """
-        SMTO_ABORTIFHUNG = 0x0002
         found = [False]
         target = button_text.strip().lower()
 
@@ -105,9 +108,7 @@ if _IS_WINDOWS:
             text = raw_text.lower()
             # Match with or without & accelerator prefix
             if text == target or text.lstrip("&") == target:
-                user32.SendMessageTimeoutW(
-                    child_hwnd, BM_CLICK, 0, 0, SMTO_ABORTIFHUNG, 2000, None
-                )
+                user32.SendMessageW(child_hwnd, BM_CLICK, 0, 0)
                 found[0] = True
                 return False
             return True
@@ -118,9 +119,7 @@ if _IS_WINDOWS:
             # Fallback: try IDOK (standard dialog button ID = 1)
             ok_hwnd = user32.GetDlgItem(hwnd, 1)  # IDOK = 1
             if ok_hwnd:
-                user32.SendMessageTimeoutW(
-                    ok_hwnd, BM_CLICK, 0, 0, SMTO_ABORTIFHUNG, 2000, None
-                )
+                user32.SendMessageW(ok_hwnd, BM_CLICK, 0, 0)
                 found[0] = True
 
         return found[0]
