@@ -87,7 +87,12 @@ if _IS_WINDOWS:
         *button_text* (case-insensitive, whitespace-trimmed, ignoring
         ``&`` accelerator prefixes).  Falls through a priority list:
         exact match → ``&``-stripped match → IDOK (dialog item 1).
+
+        Uses ``SendMessageTimeoutW(BM_CLICK)`` — plain ``PostMessageW``
+        does not dismiss CST modal History Error boxes (validated
+        2026-08-30 against CST 2024).
         """
+        SMTO_ABORTIFHUNG = 0x0002
         found = [False]
         target = button_text.strip().lower()
 
@@ -100,7 +105,9 @@ if _IS_WINDOWS:
             text = raw_text.lower()
             # Match with or without & accelerator prefix
             if text == target or text.lstrip("&") == target:
-                user32.SendMessageW(child_hwnd, BM_CLICK, 0, 0)
+                user32.SendMessageTimeoutW(
+                    child_hwnd, BM_CLICK, 0, 0, SMTO_ABORTIFHUNG, 2000, None
+                )
                 found[0] = True
                 return False
             return True
@@ -111,7 +118,9 @@ if _IS_WINDOWS:
             # Fallback: try IDOK (standard dialog button ID = 1)
             ok_hwnd = user32.GetDlgItem(hwnd, 1)  # IDOK = 1
             if ok_hwnd:
-                user32.SendMessageW(ok_hwnd, BM_CLICK, 0, 0)
+                user32.SendMessageTimeoutW(
+                    ok_hwnd, BM_CLICK, 0, 0, SMTO_ABORTIFHUNG, 2000, None
+                )
                 found[0] = True
 
         return found[0]
@@ -123,8 +132,11 @@ if _IS_WINDOWS:
             if _click_button(hwnd, label):
                 return f"clicked_{label.lower()}"
 
-        # Last resort: WM_CLOSE
-        user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+        # Last resort: WM_CLOSE via SendMessageTimeoutW — PostMessageW does
+        # not dismiss CST modal History Error boxes (validated 2026-08-30).
+        SMTO_ABORTIFHUNG = 0x0002
+        WM_CLOSE = 0x0010
+        user32.SendMessageTimeoutW(hwnd, WM_CLOSE, 0, 0, SMTO_ABORTIFHUNG, 2000, None)
         return "closed"
 
 
