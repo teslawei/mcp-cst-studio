@@ -587,6 +587,175 @@ class CSTClient:
 
         return {"status": "ok", **info}
 
+    # -- history & recovery --
+
+    def full_history_rebuild(self, timeout: int = 1800) -> dict:
+        """Replay the complete modeler history in place.
+
+        Uses the documented ``model3d.full_history_rebuild()`` API — the
+        programmatic equivalent of the GUI History List rebuild.  This is
+        the primary recovery path when geometry was deleted by a later
+        history entry (the replay re-creates it), and it works *without*
+        restarting CST: a same-process project close/reopen does NOT replay
+        history (it re-attaches the in-memory geometry).
+
+        Note: ``IsBuildingModel()`` has been observed to stay ``True``
+        after the rebuild actually finished (stale flag).  Verify results
+        via a solid-count query instead, and prefer ``model3d.Save()``
+        (which works despite the stale flag) over ``project.save()``.
+        """
+        if not self.connected or self._project is None:
+            return {
+                "status": "offline",
+                "message": "Full history rebuild requires connected mode.",
+                "vba": "' full rebuild has no VBA equivalent; it is a "
+                       "modeler-level operation (Model3D.Rebuild in the GUI)",
+            }
+
+        watcher = DialogWatcher(poll_interval=0.5)
+        watcher.start()
+        try:
+            self._project.model3d.full_history_rebuild(timeout=timeout)
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+        finally:
+            watcher.stop()
+
+        response: dict = {
+            "status": "executed",
+            "message": "Full history rebuild issued and returned.",
+        }
+        log = watcher.get_log()
+        if log:
+            response["dialogs_dismissed"] = len(log)
+            response["dialog_log"] = log
+        return response
+
+    def get_tree_items(self, prefix: str | None = None, timeout: int = 120) -> dict:
+        """Enumerate the real navigation tree via the documented API.
+
+        Returns the flat list of all tree paths from
+        ``model3d.get_tree_items()``, optionally filtered by *prefix*
+        (e.g. ``"Components"``).  Unlike ``SelectTreeItem`` probing — which
+        returns 0 even for non-existent names and is useless as an
+        existence oracle — this listing never yields false positives.
+        """
+        if not self.connected or self._project is None:
+            return {
+                "status": "offline",
+                "message": "Tree enumeration requires connected mode.",
+            }
+        try:
+            items = self._project.model3d.get_tree_items(timeout=timeout)
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+        paths = [str(i) for i in (items or [])]
+        if prefix:
+            paths = [p for p in paths if p.startswith(prefix)]
+        return {"status": "ok", "count": len(paths), "items": paths}
+
+    def execute_vba_query(self, expression: str, timeout: int = 60) -> dict:
+        """Evaluate a read-only VBA expression and return its value.
+
+        ``add_to_history`` macros cannot return values to the caller, so
+        the expression is wrapped into a tool-generated macro that writes
+        ``CStr(<expression>)`` to a marker file inside the configured work
+        directory; the file is polled and read back after the COM call
+        returns.  The wrapper VBA is generated here (trusted); callers
+        must validate the expression first (see
+        ``tools/history.py::_validate_query_expression``).
+        """
+        if not self.connected or self._project is None:
+            vba = (
+                "Dim f As Integer: f = FreeFile\n"
+                f"Open \"C:/temp/query.txt\" For Output As #f\n"
+                f"Print #f, CStr({expression})\n"
+                "Close #f"
+            )
+            return {
+                "status": "offline",
+                "message": "VBA queries require connected mode.",
+                "vba": vba,
+            }
+
+        work_dir = self._config.work_dir
+        try:
+            os.makedirs(work_dir, exist_ok=True)
+        except OSError:
+            pass
+
+        CSTClient._history_counter += 1
+        out_path = os.path.join(
+            work_dir, f"vba_query_{CSTClient._history_counter}.txt"
+        )
+        if os.path.exists(out_path):
+            try:
+                os.remove(out_path)
+            except OSError:
+                pass
+
+        lines = [
+            "On Error Resume Next",
+            "Dim f As Integer",
+            "f = FreeFile",
+            f'Open "{out_path}" For Output As #f',
+            "If Err.Number <> 0 Then",
+            '  Print #f, "error"',
+            '  Print #f, "cannot open result file"',
+            "  Close #f",
+            "  On Error GoTo 0",
+            "Else",
+            '  Print #f, "ok"',
+            f"  Print #f, CStr({expression})",
+            "  Close #f",
+            "End If",
+            "On Error GoTo 0",
+        ]
+        label = f"mcp_query_{CSTClient._history_counter}"
+        watcher = DialogWatcher(poll_interval=0.5)
+        watcher.start()
+        try:
+            self._project.model3d.add_to_history(
+                label, "\n".join(lines), timeout=timeout
+            )
+        except Exception as e:
+            return {"status": "error", "message": str(e), "expression": expression}
+        finally:
+            watcher.stop()
+
+        # The file is written inside the macro, just before the COM call
+        # returns; poll briefly to absorb filesystem latency.
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline and not os.path.exists(out_path):
+            time.sleep(0.5)
+
+        if not os.path.exists(out_path):
+            return {
+                "status": "error",
+                "message": (
+                    "Query macro completed but produced no result file; "
+                    "the expression likely raised inside the macro."
+                ),
+                "expression": expression,
+            }
+        try:
+            with open(out_path, "r", errors="replace") as f:
+                content = f.read().splitlines()
+        finally:
+            try:
+                os.remove(out_path)
+            except OSError:
+                pass
+
+        if len(content) >= 2 and content[0].strip() == "ok":
+            return {"status": "ok", "expression": expression, "value": content[1]}
+        return {
+            "status": "error",
+            "message": "; ".join(content[1:]) or "expression failed",
+            "expression": expression,
+        }
+
     # -- dialog management --
 
     _dialog_watcher: DialogWatcher | None = None

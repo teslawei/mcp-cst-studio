@@ -152,18 +152,27 @@ _CST_MAIN_WINDOW_KEYWORDS = [
 ]
 
 # Known dialog title patterns (fallback when process detection fails).
+# The "cst microwave studio 202x" bare-title entry covers the Qt
+# RemoteUI::GenericDialog / CstMessageBox hosts (class Qt5xxxxQWindow) that
+# carry no other identifying text; the exact "vba" entry covers the bare
+# "VBA"-titled #32770 error box raised by runtime errors inside history
+# entries (both observed in the field, see docs/HISTORY_AND_RECOVERY.md).
 _CST_DIALOG_PATTERNS = [
     "Results May Get Incompatible",
     "History Error",
     "Solver Error",
     "CST Error",
     "CST Warning",
+    "CST MICROWAVE STUDIO 202",
     "Frequency Range",
     "Port Properties",
     "Mesh Properties",
     "Boundary Conditions",
     "Units",
 ]
+
+# Dialog titles matched exactly (case-insensitive) rather than by substring.
+_CST_DIALOG_EXACT_TITLES = {"vba"}
 
 
 def _is_cst_main_window(title: str) -> bool:
@@ -241,6 +250,8 @@ def find_cst_dialogs() -> list[dict[str, Any]]:
                 if pat.lower() in title_lower:
                     matched_by = "title_pattern"
                     break
+            if matched_by is None and title_lower.strip() in _CST_DIALOG_EXACT_TITLES:
+                matched_by = "title_exact"
 
         if matched_by is not None:
             child_texts = _get_child_texts(hwnd)

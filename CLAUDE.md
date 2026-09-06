@@ -41,6 +41,19 @@
 | antenna_templates.py | 13 | Parametric designs: patch, dipole, monopole, horn, Yagi, helix, etc. |
 | pcb.py | 6 | Stackup, traces, vias, ground planes, Gerber import |
 | vba.py | 3 | Raw VBA execution, help reference, object listing |
+| history.py | 4 | Full history rebuild, tree enumeration, solid count, VBA value queries |
+
+## History & Recovery
+
+`add_to_history` macros cannot return values; recovery and audit tools use
+the marker-file bridge (`CSTClient.execute_vba_query`). Geometry deleted by
+a later history entry is restored with `CSTClient.full_history_rebuild()`
+in place — a same-process project close/reopen does NOT replay history.
+`SelectTreeItem` returns 0 for non-existent names (no false negatives as an
+existence oracle); enumerate with `get_tree_items()` instead. Loose
+bounding boxes of B-spline solids are control-point hulls and must never
+be used to infer geometric containment. Full methodology and the
+field-tested failure modes: `docs/HISTORY_AND_RECOVERY.md`.
 
 ## Adding a New Tool
 
