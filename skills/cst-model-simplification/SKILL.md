@@ -73,6 +73,39 @@ workspace) and follows this exact sequence.
 Expect ~80 s to read a 500 MB STP and ~50 s per fuse; cache extracted
 roles as `.brep` for fast iteration.
 
+#### Full-unite recipes (every part into ONE solid)
+
+For "unite the whole assembly" requests, fuse pairwise with a
+**(fuzzy x repair) ladder per stage** and accept the first
+`n=1 and BRepCheck_Analyzer.IsValid()` result:
+
+- repair ladder per fuzzy: raw -> `UnifySameDomain` ->
+  `ShapeFix_Shape(usd)` -> `ShapeFix_Shape(raw)`
+- fuzzy escalation per stage: `1e-4 -> 1e-3 -> 5e-3`
+- **coplanar/tangent interfaces** (housing flange on a tray): needed
+  `fz=5e-3 + USD + ShapeFix` to come out valid (fz<=1e-3 stayed invalid).
+- **flat contacts fuse clean** (platters onto floor at `1e-4`, ~10 s each).
+- **tangent face-to-face contact fuses never go valid at any fuzzy**
+  (EMC shield sitting ON a curved housing surface: raw/usd/sfix all
+  invalid at 1e-4..5e-3, and fz>=1e-2 aborts). Fix: translate the
+  mating part **0.1-0.2 mm deeper** to turn tangent contact into an
+  explicit overlap - then the same fuse goes VALID at 1e-4 raw. For PEC
+  parts this is electrically and visually identical to touching.
+- Order matters: fuse flat/simple contacts first, tangential pairs
+  early while the accumulated solid is small, and probe 2-3 offsets.
+- Keep a valid intermediate `.brep` before every risky stage.
+- OCP 8.0.1 trims `TopTools` (`TopTools_ListOfShape` missing), so
+  `BOPAlgo_Builder` multi-argument general fuse is unavailable; pairwise
+  chains are the way.
+
+#### Pulling parts from a SECOND STP (e.g. an EMC release file)
+
+- Recon the second file the same way (`GetShapes` + names + per-solid
+  bbox); product names are usually part numbers (`3DP-27288759-A`).
+- Coordinate frames typically MATCH the main assembly - verify by
+  checking the part's bbox sits where the model expects it before
+  fusing.
+
 ### A4. CST import (new project)
 
 Run under CST's bundled Python 3.9
@@ -130,7 +163,10 @@ material). Ground rules:
   -> use `CornerMin()/CornerMax()` (the box IS filled even when `Add_s`
   raises a return-conversion TypeError); `TopoDS.Compound()` has no
   default ctor -> `TopoDS_Shape()` + `BRepTools.Read_s(shape, file,
-  builder)`; `AddOptimal_s` 4-arg overload broken -> 2-arg or `Add_s`.
+  builder)`; `AddOptimal_s` 4-arg overload broken -> 2-arg or `Add_s`;
+  `TopTools_ListOfShape` absent -> no `BOPAlgo_Builder` general fuse.
+- **Unnamed STEP files list instances AND definitions** in `GetShapes`
+  (same geometry twice) - dedupe recon rows by `(bbox, volume)`.
 - **XCAF**: `GetShapes` = top-level products (may be duplicate-named
   instances elsewhere in the file - always verify via the tree walk path,
   not the label name); `GetShape_s` on component labels works, but on
@@ -140,6 +176,10 @@ material). Ground rules:
   rebuild (stale flag) - trust solid counts, save via `m.Save()`.
 - **Never call `Rebuild` inside an `add_to_history` entry** ("cannot be
   used inside a structure macro").
+- **`GetLooseBoundingBoxOfShape` can be wildly wrong** on huge
+  B-spline solids (reported z-max 1163.8 vs true 650.6 on a fused
+  battery pack) - it is a control-point hull; use OCC-side bboxes for
+  truth and CST loose boxes only for same-process comparisons.
 - WMI process launch and `git push` need sandbox escalation
   (`danger-full-access`); git needs `-c http.sslBackend=openssl`.
 - py3.9 f-strings cannot contain backslashes in the expression part.
