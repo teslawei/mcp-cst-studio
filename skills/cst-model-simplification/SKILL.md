@@ -106,6 +106,29 @@ For "unite the whole assembly" requests, fuse pairwise with a
   checking the part's bbox sits where the model expects it before
   fusing.
 
+## Route C - Vehicle-level envelope simplification (I-solver)
+
+For整车 simulation the I-solver needs a surface mesh; a 10k-face
+B-spline body is unmeshable. Build a NEW low-poly solid from
+measurements instead of defeature-ing the fused body:
+
+1. **Measure REAL extents by sectioning** (`BRepAlgoAPI_Section` with a
+   z-plane + binary search): hull bboxes overestimate badly - measured
+   pack: bottom 229.2 / housing top 353.6 / tower top 482.6 vs hull
+   claims 139.8 / 394.1 / 650.6.
+2. **Outline**: sample ALL section edges at the widest z into a point
+   cloud (`GCPnts_UniformDeflection` 2 mm), take the 2D convex hull
+   (monotone chain - this IS the "fill dents" step), Douglas-Peucker
+   simplify (5 mm) -> typically ~20 vertices.
+3. **Prism**: `BRepBuilderAPI_MakePolygon(closed)` -> `MakeFace` ->
+   `BRepPrimAPI_MakePrism` from real bottom to flat top.
+4. **Towers/shields as flat boxes**: union footprint from sections in
+   the tower z-band; box from (flat top - ~4 mm overlap) to real top;
+   fuse at 1e-4.
+5. Validate (1 solid, `BRepCheck`, face count) and export. Result on
+   the battery pack: 10,578 faces -> **29 faces**, STP 157 MB -> 106 KB,
+   CST import 153 s -> 3 s.
+
 ### A4. CST import (new project)
 
 Run under CST's bundled Python 3.9
