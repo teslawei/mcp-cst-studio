@@ -21,7 +21,7 @@
 | `tools/__init__.py` | ToolRegistry aggregator, register_all_tools() |
 | `data/` | JSON material databases, antenna templates, VBA reference |
 
-## Tool Categories (~107 tools)
+## Tool Categories (~109 tools)
 
 | Module | Tools | Description |
 |--------|-------|-------------|
@@ -42,6 +42,16 @@
 | pcb.py | 6 | Stackup, traces, vias, ground planes, Gerber import |
 | vba.py | 3 | Raw VBA execution, help reference, object listing |
 | history.py | 4 | Full history rebuild, tree enumeration, solid count, VBA value queries |
+| cad.py | 2 | STP-side OCC simplification: product recon with exact bboxes, whitelist prune + fuzzy fuse + validity-checked export (needs `pip install cadquery-ocp`; pure file processing, no CST connection) |
+
+## Model Simplification Skill
+
+`skills/cst-model-simplification/SKILL.md` is the field-tested end-to-end
+workflow for turning huge assemblies into simulation-ready projects:
+prune + fuse on the STP side (OCC), import + PEC + verify on the CST side,
+with the complete trap list (ACIS seam refusals, OCP 8 binding bugs,
+history/cache pitfalls). Read it before doing component deletion or unite
+work on any new project.
 
 ## History & Recovery
 

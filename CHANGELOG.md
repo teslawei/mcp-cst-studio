@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **STP-side OCC simplification module** (`tools/cad.py`, 2 tools,
+  optional extra `pip install cadquery-ocp`):
+  `cst_stp_recon` (product→solid enumeration with exact bounding boxes
+  and volumes via the XCAF tree) and `cst_stp_simplify` (whitelist prune
+  + ShapeFix + fuzzy boolean fuse + BRepCheck-validated AP214 export).
+  Pure file processing — no running CST required. Validated end-to-end on
+  a 167-product / 1370-solid battery assembly reduced to 5 simulation
+  solids, including a housing seam fuse that ACIS refuses twice on clean
+  geometry.
+- **`skills/cst-model-simplification/SKILL.md`**: the field-tested
+  model-simplification workflow (STP-first division of labor, CST-only
+  fallback route, OCP 8 binding bugs, CST history/cache traps, and the
+  full verification checklist) for reuse across projects.
+- `pyproject.toml` optional dependency group `cad`
+  (`cadquery-ocp>=8.0`); tests `tests/test_tools_cad.py` run offline and
+  exercise the real recon path when OCP is installed.
 - **History & recovery tool module** (`tools/history.py`, 4 tools):
   `cst_full_history_rebuild` (in-place replay of the complete modeler
   history — restores geometry deleted by later history entries without

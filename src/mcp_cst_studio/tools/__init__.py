@@ -118,6 +118,7 @@ def register_all_tools(server: Server, client: CSTClient) -> None:
     from mcp_cst_studio.tools.arrays import register_array_tools
     from mcp_cst_studio.tools.boolean import register_boolean_tools
     from mcp_cst_studio.tools.boundaries import register_boundary_tools
+    from mcp_cst_studio.tools.cad import register_cad_tools
     from mcp_cst_studio.tools.diagnostics import register_diagnostics_tools
     from mcp_cst_studio.tools.geometry import register_geometry_tools
     from mcp_cst_studio.tools.history import register_history_tools
@@ -138,6 +139,7 @@ def register_all_tools(server: Server, client: CSTClient) -> None:
 
     register_project_tools(server, client)
     register_history_tools(server, client)
+    register_cad_tools(server, client)
     register_geometry_tools(server, client)
     register_boolean_tools(server, client)
     register_transform_tools(server, client)

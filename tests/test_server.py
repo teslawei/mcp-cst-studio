@@ -99,7 +99,7 @@ class TestRegisterAllTools:
         server = Server("test-server")
         register_all_tools(server, offline_client)
 
-        assert len(_registry._tools) == 170
+        assert len(_registry._tools) == 176
 
     def test_register_all_tools_clears_before_registering(self, offline_client: CSTClient):
         """Calling register_all_tools twice must not double the count."""
@@ -115,7 +115,7 @@ class TestRegisterAllTools:
         register_all_tools(server2, offline_client)
         second_count = len(_registry._tools)
 
-        assert first_count == second_count == 170
+        assert first_count == second_count == 176
 
     def test_all_tool_names_are_unique(self, offline_client: CSTClient):
         """No two tools may share the same name."""
@@ -180,7 +180,7 @@ class TestToolNames:
 
         names = [tool.name for tool in _registry._tools]
         assert isinstance(names, list)
-        assert len(names) == 170
+        assert len(names) == 176
 
     def test_tool_names_contain_expected_entries(self, offline_client: CSTClient):
         from mcp.server import Server

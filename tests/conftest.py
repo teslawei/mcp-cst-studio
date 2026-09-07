@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,13 +10,17 @@ import pytest
 from mcp_cst_studio.config import CSTConfig
 from mcp_cst_studio.cst_client import CSTClient
 
+# A work dir that is writable on every platform and inside restricted
+# sandboxes: the repo-local .pytest_work (git-ignored, auto-created).
+_TEST_WORK_DIR = os.path.join(os.getcwd(), ".pytest_work")
+
 
 @pytest.fixture
 def offline_config() -> CSTConfig:
     """Config for offline mode testing."""
     return CSTConfig(
         cst_path=None,
-        work_dir="/tmp/cst_test",
+        work_dir=_TEST_WORK_DIR,
         version="2026",
         connected=False,
     )
@@ -37,7 +42,7 @@ def mock_client() -> CSTClient:
     """
     config = CSTConfig(
         cst_path=r"C:\Program Files\CST Studio Suite 2026",
-        work_dir="/tmp/cst_test",
+        work_dir=_TEST_WORK_DIR,
         version="2026",
         connected=True,
     )
