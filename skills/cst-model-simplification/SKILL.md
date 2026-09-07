@@ -174,6 +174,14 @@ material). Ground rules:
 - **CST same-process close/reopen does NOT replay history**; use
   `full_history_rebuild()`. `IsBuildingModel()` may stay True after a
   rebuild (stale flag) - trust solid counts, save via `m.Save()`.
+- **CST import Healing leaves stray curve objects** (`With STEP ...
+  .Healing "True"`): healing can split off invisible free wires that
+  `Solid.Delete` never removes (it deletes solids only) - they linger in
+  the tree's `Curves` branch, render in wireframe, cannot be picked with
+  Pick Edge/Face, and keep the OLD component's name in hover tooltips.
+  Since OCC-side geometry is already `BRepCheck`-valid, import with
+  `.Healing "False"` (also ~3x faster) and rebuild the project fresh
+  instead of deleting solids from a healed import.
 - **Never call `Rebuild` inside an `add_to_history` entry** ("cannot be
   used inside a structure macro").
 - **`GetLooseBoundingBoxOfShape` can be wildly wrong** on huge
